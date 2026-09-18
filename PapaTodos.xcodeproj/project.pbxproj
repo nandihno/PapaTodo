@@ -6,8 +6,31 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		92ECBA7BFCDFF533692E1B53 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2D322FBB7AAF559D46B98DE2 /* Supabase */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA47DCBA305D5B5B00A7B803 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA47DCC1305D5B5B00A7B803;
+			remoteInfo = PapaTodos;
+		};
+		204E844FBC51AF5B75EF3DA5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA47DCBA305D5B5B00A7B803 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA47DCC1305D5B5B00A7B803;
+			remoteInfo = PapaTodos;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		BA47DCC2305D5B5B00A7B803 /* PapaTodos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PapaTodos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BF1555C88055DE66380419E2 /* PapaTodosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PapaTodosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0A9382101012EB8F2071DBB /* PapaTodosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PapaTodosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +39,31 @@
 			path = PapaTodos;
 			sourceTree = "<group>";
 		};
+		3C6ACCE9876DF8F4FC90BEEC /* PapaTodosTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PapaTodosTests;
+			sourceTree = "<group>";
+		};
+		D973BEA9398830E238DE3877 /* PapaTodosUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PapaTodosUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		BA47DCBF305D5B5B00A7B803 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				92ECBA7BFCDFF533692E1B53 /* Supabase in Frameworks */,
+			);
+		};
+		10CF0213F71F00C5B9D09B10 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		AFBDC690D75FFE80FA91D749 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -31,6 +75,8 @@
 			isa = PBXGroup;
 			children = (
 				BA47DCC4305D5B5B00A7B803 /* PapaTodos */,
+				3C6ACCE9876DF8F4FC90BEEC /* PapaTodosTests */,
+				D973BEA9398830E238DE3877 /* PapaTodosUITests */,
 				BA47DCC3305D5B5B00A7B803 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +85,8 @@
 			isa = PBXGroup;
 			children = (
 				BA47DCC2305D5B5B00A7B803 /* PapaTodos.app */,
+				BF1555C88055DE66380419E2 /* PapaTodosTests.xctest */,
+				A0A9382101012EB8F2071DBB /* PapaTodosUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,9 +108,54 @@
 				BA47DCC4305D5B5B00A7B803 /* PapaTodos */,
 			);
 			name = PapaTodos;
+			packageProductDependencies = (
+				2D322FBB7AAF559D46B98DE2 /* Supabase */,
+			);
 			productName = PapaTodos;
 			productReference = BA47DCC2305D5B5B00A7B803 /* PapaTodos.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D1611B7A759EC17064FAF63E /* PapaTodosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 972826E94BC4105A5A3ECC1D /* Build configuration list for PBXNativeTarget "PapaTodosTests" */;
+			buildPhases = (
+				3364FFD386E81409EA514CFE /* Sources */,
+				10CF0213F71F00C5B9D09B10 /* Frameworks */,
+				0D9D166C357ACB7E8E971959 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7CD6B126AFF6E57D228D3AE6 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3C6ACCE9876DF8F4FC90BEEC /* PapaTodosTests */,
+			);
+			name = PapaTodosTests;
+			productName = PapaTodosTests;
+			productReference = BF1555C88055DE66380419E2 /* PapaTodosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E07095AD40FE54C5F4692B13 /* PapaTodosUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 30B004AFDE4A257EE9186914 /* Build configuration list for PBXNativeTarget "PapaTodosUITests" */;
+			buildPhases = (
+				73465426E0E0062E5D320B96 /* Sources */,
+				AFBDC690D75FFE80FA91D749 /* Frameworks */,
+				D296837D4952A9C4BB08825E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				64C05726990F600EE12DCF17 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D973BEA9398830E238DE3877 /* PapaTodosUITests */,
+			);
+			name = PapaTodosUITests;
+			productName = PapaTodosUITests;
+			productReference = A0A9382101012EB8F2071DBB /* PapaTodosUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -77,6 +170,14 @@
 					BA47DCC1305D5B5B00A7B803 = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					D1611B7A759EC17064FAF63E = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = BA47DCC1305D5B5B00A7B803;
+					};
+					E07095AD40FE54C5F4692B13 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = BA47DCC1305D5B5B00A7B803;
+					};
 				};
 			};
 			buildConfigurationList = BA47DCBD305D5B5B00A7B803 /* Build configuration list for PBXProject "PapaTodos" */;
@@ -88,18 +189,33 @@
 			);
 			mainGroup = BA47DCB9305D5B5B00A7B803;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				20D4453C9FE684E9DFFD0506 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA47DCC3305D5B5B00A7B803 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				BA47DCC1305D5B5B00A7B803 /* PapaTodos */,
+				D1611B7A759EC17064FAF63E /* PapaTodosTests */,
+				E07095AD40FE54C5F4692B13 /* PapaTodosUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		BA47DCC0305D5B5B00A7B803 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		0D9D166C357ACB7E8E971959 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		D296837D4952A9C4BB08825E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +228,30 @@
 			files = (
 			);
 		};
+		3364FFD386E81409EA514CFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		73465426E0E0062E5D320B96 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7CD6B126AFF6E57D228D3AE6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA47DCC1305D5B5B00A7B803 /* PapaTodos */;
+			targetProxy = 9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */;
+		};
+		64C05726990F600EE12DCF17 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA47DCC1305D5B5B00A7B803 /* PapaTodos */;
+			targetProxy = 204E844FBC51AF5B75EF3DA5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BA47DCCB305D5B5B00A7B803 /* Debug configuration for PBXProject "PapaTodos" */ = {
@@ -300,6 +439,64 @@
 			};
 			name = Release;
 		};
+		1AA9CFB5901481DACD3D38FD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
+			};
+			name = Debug;
+		};
+		B97A581035FE73B12C1033D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
+			};
+			name = Release;
+		};
+		ECC5E910CB98F22BCD595DEC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PapaTodos;
+			};
+			name = Debug;
+		};
+		68C5E8E64AC128898705DE62 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PapaTodos;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -319,7 +516,42 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		972826E94BC4105A5A3ECC1D /* Build configuration list for PBXNativeTarget "PapaTodosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1AA9CFB5901481DACD3D38FD /* Debug */,
+				B97A581035FE73B12C1033D4 /* Release */,
+			);
+			defaultConfigurationName = Release;
+		};
+		30B004AFDE4A257EE9186914 /* Build configuration list for PBXNativeTarget "PapaTodosUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ECC5E910CB98F22BCD595DEC /* Debug */,
+				68C5E8E64AC128898705DE62 /* Release */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		20D4453C9FE684E9DFFD0506 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.55.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2D322FBB7AAF559D46B98DE2 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 20D4453C9FE684E9DFFD0506 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BA47DCBA305D5B5B00A7B803 /* Project object */;
 	validationLevel = 1;
