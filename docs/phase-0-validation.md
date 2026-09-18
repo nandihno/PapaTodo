@@ -99,6 +99,18 @@ Full detail retained in this session's memory (`project_supabase_audit_2026-09-1
 - No PapaBoard frontend source has been inspected yet; the feature-parity checklist against an exact PapaBoard snapshot (specification.md section 4.2, section 14 item 12) is still outstanding.
 - `Configuration/Local.xcconfig` on this machine currently holds the real Supabase publishable key and project URL for local development; it is gitignored and was never committed.
 
+## Decisions recorded (specification.md section 18)
+
+Answered 2026-09-18:
+
+1. Product display name: **Papa Tools** (`CFBundleDisplayName` only — Xcode target name, bundle identifier `org.nando.PapaTodos`, folder names, and the git repo remain PapaTodos; explicitly scoped this way to avoid bundle-identifier churn ahead of any TestFlight/App Store record).
+2. Deployment floor: **iOS 27.0+** (matches the existing project default, no change needed).
+3. Device family: **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1` on all three targets, iPad-specific orientation key removed from `Configuration/Info.plist`). Supersedes the spec's "iPhone-first, universal buildable" default — this project no longer builds a universal target.
+
+Remaining open from section 18: Swift 6 strict concurrency mode, notification control placement (Home vs Settings), rich-text editing parity level, copied-image paste requirement, distribution route, and Apple Developer/APNs credential readiness.
+
+Verified after applying: clean build succeeds, `Info.plist` shows `CFBundleDisplayName = Papa Tools` and `UIDeviceFamily = [1]`, and the full test suite (`PapaTodosTests` + `PapaTodosUITests`) still passes.
+
 ## Deployment-boundary checklist (specification.md section 3.3)
 
 - [x] specification written
@@ -107,7 +119,7 @@ Full detail retained in this session's memory (`project_supabase_audit_2026-09-1
 - [x] test bundles compiled
 - [x] simulator tests executed
 - [x] Supabase migration reviewed (read-only audit of live schema/RLS/Realtime/functions)
-- [ ] Supabase migration deployed
+- [x] Supabase migration deployed (`202609180001_enable_chore_comments_realtime.sql`, additive-only, applied to `apaeocgssnkncputzolu` and verified via `pg_publication_tables`; reviewed and committed in the PapaBoard repo, not this one)
 - [ ] Edge Function deployed
 - [ ] APNs accepted a request
 - [ ] a physical device received and opened the notification
