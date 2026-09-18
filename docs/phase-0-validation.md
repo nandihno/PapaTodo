@@ -12,6 +12,9 @@ Phase scope: specification.md section 14, "Phase 0 - Foundation and contract aud
 - Added Supabase Swift via SPM, pinned to exact version `2.55.2`, product `Supabase`; `Package.resolved` committed
 - Added typed configuration loading: `Configuration/Config.xcconfig` (committed, no secrets), `Configuration/Local.xcconfig` (gitignored, real values), `Configuration/Local.xcconfig.example` (committed template), `Configuration/Info.plist` (physical, replaces generated Info.plist), `PapaTodos/Configuration/AppConfiguration.swift`
 - Added `AGENTS.md`, updated `README.md` with status/setup, added `docs/phase-N-validation.md` template
+- Recorded all ten specification.md section 18 decisions; implemented the four with code to change (display name, device family, Swift 6 mode) — see "Decisions recorded" below
+- Added the app/session/router composition skeleton (`PapaTodos/App/{AppSession,AppRouter,AppEnvironment}.swift`) and Codable/Sendable domain contracts (`PapaTodos/Domain/{Models,Protocols,Rules}/`), plus deterministic fixture services (`PapaTodos/Services/Fixtures/`) — see "Architecture skeleton and domain rules" below
+- Added `docs/papaboard-parity-checklist.md`, freezing what's been ported against the actual PapaBoard source (with an important caveat about uncommitted PapaBoard changes — see that doc)
 
 ## Build
 
@@ -57,7 +60,9 @@ xcodebuild test -project PapaTodos.xcodeproj -scheme PapaTodos \
   -only-testing:PapaTodosTests CODE_SIGNING_ALLOWED=NO
 ```
 
-Result: **TEST SUCCEEDED** — `PapaTodosTests.appConfigurationLoadsFromInfoPlist()` passed (0.001s). Verifies `AppConfiguration.load()` correctly reads `supabaseURL`, `supabaseAnonKey`, `bundleIdentifier`, and derives `.sandbox` for a Debug build.
+Result: **TEST SUCCEEDED** — 30 tests across 8 suites, all passing:
+
+- `PapaTodosTests` (config loading), `DueDateRuleTests`, `ChoreDueStateTests`, `ChoreSortTests`, `ChoreFilterTests`, `ChoreSearchTests` (domain rules ported from PapaBoard — see `docs/papaboard-parity-checklist.md`), `FixtureRepositoryTests` (deterministic fake CRUD/auth/comments), `AppRouterTests` (pending-route deep-link retention).
 
 Command run (UI tests):
 
@@ -92,12 +97,20 @@ Read-only audit only, no changes made or deployed:
 
 Full detail retained in this session's memory (`project_supabase_audit_2026-09-18`).
 
+## Architecture skeleton and domain rules (section 14 items 9, 10, 12)
+
+- **App composition** (`PapaTodos/App/`): `AppSession` and `AppRouter` are `@Observable @MainActor` per specification.md section 7.1 (they're genuinely UI-bound state); `AppEnvironment` bundles the three protocol-typed dependencies with a `.fixture()` factory. `PapaTodosApp.swift` wires `AppSession`/`AppRouter` into the environment and calls `session.restore()` on launch — `ContentView.swift` itself is untouched (still the template; that's Phase 2's job).
+- **Domain contracts** (`PapaTodos/Domain/`): `Chore`, `ChoreDraft`, `Profile`, `ChoreComment`, `ChoreAttachment`, `AppSessionRecord`, `ChoreStatus` (all Codable/Sendable, matching specification.md section 6's DB field names via `CodingKeys`), plus the three protocols from section 7.4 (`Authenticating`, `ChoreRepository`, `CommentRepository`) verbatim.
+- **Due-date and list rules** (`PapaTodos/Domain/Rules/`): `DueDateRule` (local-noon sentinel detection), `ChoreDueState` (tone + sort rank/key), `ChoreSort`, `ChoreFilter` (Mine/All/Done), `ChoreSearch` — all ported directly from PapaBoard's actual source (`src/lib/dueDates.js`, `src/screens/HomeScreen.jsx`), not reimplemented from the spec's prose description. See `docs/papaboard-parity-checklist.md` for the file:line mapping and what's deliberately not ported yet.
+- **Deterministic fixtures** (`PapaTodos/Services/Fixtures/`): `FixtureAuthenticating`, `FixtureChoreRepository`, `FixtureCommentRepository` — in-memory actors, never touch Supabase, used by `AppEnvironment.fixture()` and by the test suite directly.
+- **Real Swift 6 concurrency findings, not just theoretical risk**: this project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` setting turned out to implicitly MainActor-isolate *every* unannotated declaration — plain structs/enums (`Chore`, `DueTone`, `ChoreSort`, etc.) and even synchronous initializers on plain `actor` types, not just SwiftUI-adjacent code. Every pure-domain type needed an explicit `nonisolated` to be usable from plain (non-`@MainActor`) test functions; the fixture actors instead needed their *test callers* marked `@MainActor` (`nonisolated` on an actor's synchronous initializer is a compiler error — that's genuinely invalid syntax, not a style choice). Recorded in the `swift6-default-isolation-papatodos` memory for future files.
+
 ## Known limitations and follow-up work
 
-- Product name (PapaTodos vs PapaBoard), deployment floor, device-family scope, Swift 6 mode, notification UI placement, rich-text parity level, paste support, and distribution route — all ten decisions in specification.md section 18 — remain unanswered.
 - `project.pbxproj` was hand-edited (not via the `xcodeproj` gem or Xcode GUI automation — see AGENTS.md for why). Future structural project changes should follow the same manual-edit-then-verify approach until a compatible tool exists.
-- No PapaBoard frontend source has been inspected yet; the feature-parity checklist against an exact PapaBoard snapshot (specification.md section 4.2, section 14 item 12) is still outstanding.
 - `Configuration/Local.xcconfig` on this machine currently holds the real Supabase publishable key and project URL for local development; it is gitignored and was never committed.
+- `AppEnvironment` has no `.live` factory yet — Phase 1 adds a Supabase-backed implementation of the three protocols. Until then the running app only ever uses `.fixture()`.
+- The parity checklist covers due-date/sort/filter/search only. Attachments, comments UI, notifications, rich text, and calendar behavior haven't been read from PapaBoard source yet — each is scoped to its own later phase.
 
 ## Decisions recorded (specification.md section 18)
 
@@ -119,7 +132,7 @@ Verified after applying items 1-4 (the only ones with code to change today): cle
 ## Deployment-boundary checklist (specification.md section 3.3)
 
 - [x] specification written
-- [x] native code implemented locally (test targets, config loader — no feature code yet)
+- [x] native code implemented locally (test targets, config loader, app/session/router composition, domain contracts and rules, fixture services — no live-Supabase or UI feature code yet)
 - [x] native build succeeded
 - [x] test bundles compiled
 - [x] simulator tests executed

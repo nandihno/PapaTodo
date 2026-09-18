@@ -45,9 +45,19 @@ Xcode itself may silently reorder objects within sections (alphabetically by ID)
 
 ## Configuration and secrets
 
-- `Configuration/Config.xcconfig` (committed) sets empty defaults for `INFOPLIST_KEY_PBSupabaseURL`/`INFOPLIST_KEY_PBSupabaseAnonKey`, then `#include? "Local.xcconfig"`.
+- `Configuration/Config.xcconfig` (committed) sets empty defaults for `PB_SUPABASE_URL`/`PB_SUPABASE_ANON_KEY`, then `#include? "Local.xcconfig"`.
 - `Configuration/Local.xcconfig` (gitignored) holds real values — copy `Local.xcconfig.example` to get started.
-- These land in the app's Info.plist and are read by `PapaTodos/Configuration/AppConfiguration.swift`. The Supabase key here is the publishable/anon key, safe for client bundles (RLS enforces access, not secrecy of this key). Never add a service-role key, APNs private key, or Web Push VAPID private key to this repo in any form.
+- The app target uses a **physical** `Configuration/Info.plist` (`INFOPLIST_FILE`, not `GENERATE_INFOPLIST_FILE`). Xcode's generated-Info.plist mode (`INFOPLIST_KEY_<Name>`) only supports a curated list of Apple's own keys, not arbitrary custom ones — confirmed empirically when a plain test key was silently dropped from the built plist. Custom keys (`PBSupabaseURL`, `PBSupabaseAnonKey`) use `$(VAR)` substitution in the physical plist instead. That file must live **outside** any `PBXFileSystemSynchronizedRootGroup` folder (e.g. not inside `PapaTodos/`) or Xcode auto-adds it to Copy Bundle Resources too, colliding with `ProcessInfoPlistFile`'s own output.
+- These are read by `PapaTodos/Configuration/AppConfiguration.swift`. The Supabase key here is the publishable/anon key, safe for client bundles (RLS enforces access, not secrecy of this key). Never add a service-role key, APNs private key, or Web Push VAPID private key to this repo in any form.
+
+## Swift 6 default actor isolation gotcha
+
+This project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which implicitly MainActor-isolates **every** declaration that doesn't say otherwise — not just SwiftUI views. This bit plain `struct`/`enum` domain types (`AppConfiguration`, `Chore`, `DueTone`, `ChoreSort`, etc. — even a stored-property key path like `\.title` fails from a nonisolated context) and even the synchronous initializers of plain `actor` types (`FixtureChoreRepository()` etc.).
+
+- **Plain value types and enum namespaces** (domain models, `Domain/Rules/*`, `AppConfiguration`): mark the type declaration `nonisolated`. This is valid and is the fix.
+- **`actor` types**: you cannot write `nonisolated init` on an actor's synchronous initializer — the compiler rejects it outright ("`nonisolated` on an actor's synchronous initializer is invalid"). Don't fight this: leave the actor MainActor-isolated and mark whatever calls its plain initializer synchronously (test functions, `AppEnvironment`) as `@MainActor` instead. See `FixtureAuthenticating`/`FixtureChoreRepository`/`FixtureCommentRepository` and `FixtureRepositoryTests`/`AppRouterTests` for the pattern.
+- Genuinely UI-bound observable state (`AppSession`, `AppRouter`) should stay `@MainActor` — that one's correct, not a workaround.
+- When adding a new pure-logic type, build it and run its tests before assuming it's fine; this isolation inference is easy to miss until the compiler flags a specific call site.
 
 ## Supabase MCP access
 
