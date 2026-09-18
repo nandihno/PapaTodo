@@ -85,7 +85,7 @@ Read-only audit only, no changes made or deployed:
 
 - Confirmed live Supabase project `apaeocgssnkncputzolu` (name `choresDeleon`) schema matches specification.md section 6 for `profiles`, `chores`, `chore_comments`, `chore_attachments`, `push_subscriptions`, `notification_deliveries`, `notification_devices`.
 - **Correction to specification.md section 4.3**: `notification_devices` table and `register_notification_device`/`unregister_notification_device` RPCs are already deployed live (not just an untracked draft migration), though not tracked in `supabase_migrations.schema_migrations` — needs reconciliation with the PapaBoard repo's migration file in a future phase.
-- **Gap found**: the `supabase_realtime` publication exists but has zero tables attached — comment Realtime (needed in Phase 4) will not work until fixed in the backend repo.
+- **Gap found and fixed 2026-09-18**: the `supabase_realtime` publication had zero tables attached, so the web app's existing comment-Realtime subscription (`ChoreDetailScreen.jsx`) was silently idle. Read the actual subscription code first (it just refetches on any event — no manual merge/dedup logic to worry about), then applied `202609180001_enable_chore_comments_realtime.sql` (additive only, no RLS/schema change) directly to the live project and committed it in the PapaBoard repo. Verified via `pg_publication_tables`.
 - **Gap found**: RLS on `chores`, `chore_comments`, `profiles` is fully permissive for any authenticated user (not scoped to owner/assignee). `chore_attachments`, `push_subscriptions`, `notification_devices` are correctly scoped.
 - Minor: `chore-images` storage bucket is public with no size/MIME restrictions; a few low-severity security advisor lints (mutable search_path, SECURITY DEFINER functions callable by anon — but internally guarded); leaked-password protection disabled in Auth.
 - `send-push` Edge Function is deployed (ACTIVE, version 2) but only handles Web Push, per spec.
@@ -101,15 +101,20 @@ Full detail retained in this session's memory (`project_supabase_audit_2026-09-1
 
 ## Decisions recorded (specification.md section 18)
 
-Answered 2026-09-18:
+All ten answered 2026-09-18/19:
 
 1. Product display name: **Papa Tools** (`CFBundleDisplayName` only — Xcode target name, bundle identifier `org.nando.PapaTodos`, folder names, and the git repo remain PapaTodos; explicitly scoped this way to avoid bundle-identifier churn ahead of any TestFlight/App Store record).
 2. Deployment floor: **iOS 27.0+** (matches the existing project default, no change needed).
 3. Device family: **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1` on all three targets, iPad-specific orientation key removed from `Configuration/Info.plist`). Supersedes the spec's "iPhone-first, universal buildable" default — this project no longer builds a universal target.
+4. Concurrency: **Swift 6 language mode**, enabled now (`SWIFT_VERSION = 6.0` on all three targets). Surfaced one real issue immediately: the project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` setting made `AppConfiguration` implicitly MainActor-isolated, which broke calling it from a nonisolated test context. Fixed by marking the type `nonisolated` — it's a plain Sendable value type doing synchronous Info.plist reads, not UI-bound state, so it shouldn't have been MainActor-isolated in the first place.
+5. Notification controls: **Settings, with a contextual one-time Home prompt** while permission is undetermined (spec default). Not yet implemented — no Settings/Home screens exist.
+6. Rich-text editing: **exact parity** with the web app's formatting (spec default, full Phase 3 estimate stands).
+7. Copied-image paste: **required** for v1, in addition to multi-photo selection (spec default).
+8. Distribution: **TestFlight-only** initially; a standard App Store release is a separate later decision (spec default).
+9. Backend ownership: **PapaBoard remains the permanent owner** of shared Supabase migrations, RLS, and Edge Functions (spec default; already the pattern followed for the Realtime fix above).
+10. APNs/Apple Developer readiness: reported **fully ready** — active paid membership, push notifications capability already enabled for the bundle ID, and an APNs auth key already generated. Not independently verified from this session (no tooling access to the Apple Developer portal); treat as a claim to confirm at the start of Phase 5.
 
-Remaining open from section 18: Swift 6 strict concurrency mode, notification control placement (Home vs Settings), rich-text editing parity level, copied-image paste requirement, distribution route, and Apple Developer/APNs credential readiness.
-
-Verified after applying: clean build succeeds, `Info.plist` shows `CFBundleDisplayName = Papa Tools` and `UIDeviceFamily = [1]`, and the full test suite (`PapaTodosTests` + `PapaTodosUITests`) still passes.
+Verified after applying items 1-4 (the only ones with code to change today): clean build succeeds, `Info.plist` shows `CFBundleDisplayName = Papa Tools` and `UIDeviceFamily = [1]`, and the full test suite (`PapaTodosTests` + `PapaTodosUITests`) passes under Swift 6 strict concurrency checking.
 
 ## Deployment-boundary checklist (specification.md section 3.3)
 

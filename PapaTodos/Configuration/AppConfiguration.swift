@@ -6,7 +6,7 @@ import Foundation
 /// private key, Web Push VAPID private key). The Supabase key is the
 /// publishable/anon key, which is designed for client use — access control
 /// comes from RLS, not from keeping this value secret.
-struct AppConfiguration: Sendable {
+nonisolated struct AppConfiguration: Sendable {
     enum APNsEnvironment: String, Sendable {
         case sandbox
         case production
