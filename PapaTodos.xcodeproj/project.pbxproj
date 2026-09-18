@@ -11,14 +11,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */ = {
+		204E844FBC51AF5B75EF3DA5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA47DCBA305D5B5B00A7B803 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BA47DCC1305D5B5B00A7B803;
 			remoteInfo = PapaTodos;
 		};
-		204E844FBC51AF5B75EF3DA5 /* PBXContainerItemProxy */ = {
+		9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA47DCBA305D5B5B00A7B803 /* Project object */;
 			proxyType = 1;
@@ -28,20 +28,22 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		043C904BADC60DC25350B5E5 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		A0A9382101012EB8F2071DBB /* PapaTodosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PapaTodosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA47DCC2305D5B5B00A7B803 /* PapaTodos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PapaTodos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF1555C88055DE66380419E2 /* PapaTodosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PapaTodosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A0A9382101012EB8F2071DBB /* PapaTodosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PapaTodosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		BA47DCC4305D5B5B00A7B803 /* PapaTodos */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = PapaTodos;
-			sourceTree = "<group>";
-		};
 		3C6ACCE9876DF8F4FC90BEEC /* PapaTodosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = PapaTodosTests;
+			sourceTree = "<group>";
+		};
+		BA47DCC4305D5B5B00A7B803 /* PapaTodos */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PapaTodos;
 			sourceTree = "<group>";
 		};
 		D973BEA9398830E238DE3877 /* PapaTodosUITests */ = {
@@ -52,12 +54,6 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		BA47DCBF305D5B5B00A7B803 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			files = (
-				92ECBA7BFCDFF533692E1B53 /* Supabase in Frameworks */,
-			);
-		};
 		10CF0213F71F00C5B9D09B10 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -68,12 +64,28 @@
 			files = (
 			);
 		};
+		BA47DCBF305D5B5B00A7B803 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				92ECBA7BFCDFF533692E1B53 /* Supabase in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3FC30D4D499DBBF2BC3F240E /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				043C904BADC60DC25350B5E5 /* Config.xcconfig */,
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* Info.plist */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
 		BA47DCB9305D5B5B00A7B803 = {
 			isa = PBXGroup;
 			children = (
+				3FC30D4D499DBBF2BC3F240E /* Configuration */,
 				BA47DCC4305D5B5B00A7B803 /* PapaTodos */,
 				3C6ACCE9876DF8F4FC90BEEC /* PapaTodosTests */,
 				D973BEA9398830E238DE3877 /* PapaTodosUITests */,
@@ -205,12 +217,12 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		BA47DCC0305D5B5B00A7B803 /* Resources */ = {
+		0D9D166C357ACB7E8E971959 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
 		};
-		0D9D166C357ACB7E8E971959 /* Resources */ = {
+		BA47DCC0305D5B5B00A7B803 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -223,11 +235,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		BA47DCBE305D5B5B00A7B803 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			files = (
-			);
-		};
 		3364FFD386E81409EA514CFE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -238,24 +245,74 @@
 			files = (
 			);
 		};
+		BA47DCBE305D5B5B00A7B803 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		7CD6B126AFF6E57D228D3AE6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BA47DCC1305D5B5B00A7B803 /* PapaTodos */;
-			targetProxy = 9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */;
-		};
 		64C05726990F600EE12DCF17 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BA47DCC1305D5B5B00A7B803 /* PapaTodos */;
 			targetProxy = 204E844FBC51AF5B75EF3DA5 /* PBXContainerItemProxy */;
 		};
+		7CD6B126AFF6E57D228D3AE6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA47DCC1305D5B5B00A7B803 /* PapaTodos */;
+			targetProxy = 9E3DE55378687E544D6F5559 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1AA9CFB5901481DACD3D38FD /* Debug configuration for PBXNativeTarget "PapaTodosTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
+			};
+			name = Debug;
+		};
+		68C5E8E64AC128898705DE62 /* Release configuration for PBXNativeTarget "PapaTodosUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PapaTodos;
+			};
+			name = Release;
+		};
+		B97A581035FE73B12C1033D4 /* Release configuration for PBXNativeTarget "PapaTodosTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D58U53H2X6;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
+			};
+			name = Release;
+		};
 		BA47DCCB305D5B5B00A7B803 /* Debug configuration for PBXProject "PapaTodos" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 043C904BADC60DC25350B5E5 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -320,6 +377,7 @@
 		};
 		BA47DCCC305D5B5B00A7B803 /* Release configuration for PBXProject "PapaTodos" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 043C904BADC60DC25350B5E5 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -384,12 +442,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = D58U53H2X6;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_FILE = Configuration/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -416,12 +469,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = D58U53H2X6;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_FILE = Configuration/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -439,37 +487,7 @@
 			};
 			name = Release;
 		};
-		1AA9CFB5901481DACD3D38FD /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = D58U53H2X6;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
-			};
-			name = Debug;
-		};
-		B97A581035FE73B12C1033D4 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = D58U53H2X6;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PapaTodos.app/PapaTodos";
-			};
-			name = Release;
-		};
-		ECC5E910CB98F22BCD595DEC /* Debug */ = {
+		ECC5E910CB98F22BCD595DEC /* Debug configuration for PBXNativeTarget "PapaTodosUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -482,24 +500,26 @@
 				TEST_TARGET_NAME = PapaTodos;
 			};
 			name = Debug;
-		};
-		68C5E8E64AC128898705DE62 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = D58U53H2X6;
-				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = org.nando.PapaTodosUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = PapaTodos;
-			};
-			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		30B004AFDE4A257EE9186914 /* Build configuration list for PBXNativeTarget "PapaTodosUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ECC5E910CB98F22BCD595DEC /* Debug configuration for PBXNativeTarget "PapaTodosUITests" */,
+				68C5E8E64AC128898705DE62 /* Release configuration for PBXNativeTarget "PapaTodosUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		972826E94BC4105A5A3ECC1D /* Build configuration list for PBXNativeTarget "PapaTodosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1AA9CFB5901481DACD3D38FD /* Debug configuration for PBXNativeTarget "PapaTodosTests" */,
+				B97A581035FE73B12C1033D4 /* Release configuration for PBXNativeTarget "PapaTodosTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		BA47DCBD305D5B5B00A7B803 /* Build configuration list for PBXProject "PapaTodos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -513,22 +533,6 @@
 			buildConfigurations = (
 				BA47DCCE305D5B5B00A7B803 /* Debug configuration for PBXNativeTarget "PapaTodos" */,
 				BA47DCCF305D5B5B00A7B803 /* Release configuration for PBXNativeTarget "PapaTodos" */,
-			);
-			defaultConfigurationName = Release;
-		};
-		972826E94BC4105A5A3ECC1D /* Build configuration list for PBXNativeTarget "PapaTodosTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1AA9CFB5901481DACD3D38FD /* Debug */,
-				B97A581035FE73B12C1033D4 /* Release */,
-			);
-			defaultConfigurationName = Release;
-		};
-		30B004AFDE4A257EE9186914 /* Build configuration list for PBXNativeTarget "PapaTodosUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				ECC5E910CB98F22BCD595DEC /* Debug */,
-				68C5E8E64AC128898705DE62 /* Release */,
 			);
 			defaultConfigurationName = Release;
 		};

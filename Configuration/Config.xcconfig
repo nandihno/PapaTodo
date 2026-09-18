@@ -1,0 +1,18 @@
+// Shared build configuration for PapaTodos.
+//
+// Values here are safe to commit: the Supabase publishable key is designed
+// for client-side use and access control is enforced by RLS, per
+// specification.md section 8.1. Never add a service-role key, APNs private
+// key, or other server-only secret here.
+//
+// These plain build settings are read into the app's Info.plist via
+// variable substitution in PapaTodos/Info.plist (Xcode's generated-Info.plist
+// mode does not support arbitrary custom keys, only its own curated list).
+//
+// Local.xcconfig (gitignored) overrides these defaults with real values —
+// copy Local.xcconfig.example to get started.
+
+PB_SUPABASE_URL =
+PB_SUPABASE_ANON_KEY =
+
+#include? "Local.xcconfig"

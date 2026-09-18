@@ -1,0 +1,7 @@
+// Copy this file to Local.xcconfig (gitignored) and fill in real values.
+// Local.xcconfig is included automatically by Config.xcconfig.
+
+// Note: "//" starts a comment in .xcconfig files, so it's broken up with an
+// empty build-setting reference ($()) to keep the URL intact.
+PB_SUPABASE_URL = https:/$()/your-project-ref.supabase.co
+PB_SUPABASE_ANON_KEY = your-publishable-or-anon-key

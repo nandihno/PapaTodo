@@ -95,8 +95,12 @@ build/
 # macOS
 .DS_Store
 
+# Claude Code local session state
+.claude/
+
 # Local/native configuration and secrets — never commit real values
 *.local.xcconfig
+Configuration/Local.xcconfig
 Secrets.swift
 Secrets.plist
 .env
