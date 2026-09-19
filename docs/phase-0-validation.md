@@ -116,7 +116,7 @@ Full detail retained in this session's memory (`project_supabase_audit_2026-09-1
 
 All ten answered 2026-09-18/19:
 
-1. Product display name: **Papa Tools** (`CFBundleDisplayName` only — Xcode target name, bundle identifier `org.nando.PapaTodos`, folder names, and the git repo remain PapaTodos; explicitly scoped this way to avoid bundle-identifier churn ahead of any TestFlight/App Store record).
+1. Product display name: **Papa Todos** (corrected 2026-09-19; originally recorded here as "Papa Tools" in error) (`CFBundleDisplayName` only — Xcode target name, bundle identifier `org.nando.PapaTodos`, folder names, and the git repo remain PapaTodos; explicitly scoped this way to avoid bundle-identifier churn ahead of any TestFlight/App Store record).
 2. Deployment floor: **iOS 27.0+** (matches the existing project default, no change needed).
 3. Device family: **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1` on all three targets, iPad-specific orientation key removed from `Configuration/Info.plist`). Supersedes the spec's "iPhone-first, universal buildable" default — this project no longer builds a universal target.
 4. Concurrency: **Swift 6 language mode**, enabled now (`SWIFT_VERSION = 6.0` on all three targets). Surfaced one real issue immediately: the project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` setting made `AppConfiguration` implicitly MainActor-isolated, which broke calling it from a nonisolated test context. Fixed by marking the type `nonisolated` — it's a plain Sendable value type doing synchronous Info.plist reads, not UI-bound state, so it shouldn't have been MainActor-isolated in the first place.
@@ -127,7 +127,7 @@ All ten answered 2026-09-18/19:
 9. Backend ownership: **PapaBoard remains the permanent owner** of shared Supabase migrations, RLS, and Edge Functions (spec default; already the pattern followed for the Realtime fix above).
 10. APNs/Apple Developer readiness: reported **fully ready** — active paid membership, push notifications capability already enabled for the bundle ID, and an APNs auth key already generated. Not independently verified from this session (no tooling access to the Apple Developer portal); treat as a claim to confirm at the start of Phase 5.
 
-Verified after applying items 1-4 (the only ones with code to change today): clean build succeeds, `Info.plist` shows `CFBundleDisplayName = Papa Tools` and `UIDeviceFamily = [1]`, and the full test suite (`PapaTodosTests` + `PapaTodosUITests`) passes under Swift 6 strict concurrency checking.
+Verified after applying items 1-4 (the only ones with code to change today): clean build succeeds, `Info.plist` shows `CFBundleDisplayName = Papa Tools` (at the time; now Papa Todos) and `UIDeviceFamily = [1]`, and the full test suite (`PapaTodosTests` + `PapaTodosUITests`) passes under Swift 6 strict concurrency checking.
 
 ## Deployment-boundary checklist (specification.md section 3.3)
 

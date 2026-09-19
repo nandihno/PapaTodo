@@ -41,7 +41,7 @@ struct SignedInStatusView: View {
                     .accessibilityIdentifier("status.signOut")
                 }
             }
-            .navigationTitle("Papa Tools")
+            .navigationTitle("Papa Todos")
             .refreshable { await load() }
         }
         .task(id: user.userId) { await load() }

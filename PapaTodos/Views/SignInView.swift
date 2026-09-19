@@ -29,7 +29,7 @@ struct SignInView: View {
                     .submitLabel(.go)
                     .onSubmit(submit)
             } header: {
-                Text("Sign in to Papa Tools")
+                Text("Sign in to Papa Todos")
             } footer: {
                 if let message = bannerMessage {
                     Text(message)
