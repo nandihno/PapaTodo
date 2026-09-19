@@ -9,22 +9,47 @@ import SwiftUI
 
 @main
 struct PapaTodosApp: App {
+    private let environment: AppEnvironment?
+    private let configurationError: String?
     @State private var session: AppSession
     @State private var router = AppRouter()
 
     init() {
-        let environment = AppEnvironment.fixture()
-        _session = State(initialValue: AppSession(authenticating: environment.authenticating))
+        let resolved = Self.resolveEnvironment()
+        environment = resolved.environment
+        configurationError = resolved.error
+        _session = State(initialValue: AppSession(
+            authenticating: resolved.environment?.authenticating ?? FixtureAuthenticating()
+        ))
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(session)
-                .environment(router)
-                .task {
-                    await session.restore()
-                }
+            if let environment {
+                ContentView(environment: environment)
+                    .environment(session)
+                    .environment(router)
+                    .task { await session.restore() }
+            } else {
+                ContentUnavailableView(
+                    "Configuration missing",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(configurationError ?? "")
+                )
+            }
+        }
+    }
+
+    /// `-UITestFixtures` swaps in deterministic fixtures so UI tests never touch
+    /// the live backend.
+    private static func resolveEnvironment() -> (environment: AppEnvironment?, error: String?) {
+        if ProcessInfo.processInfo.arguments.contains("-UITestFixtures") {
+            return (.fixture(), nil)
+        }
+        do {
+            return (.live(configuration: try AppConfiguration.load()), nil)
+        } catch {
+            return (nil, String(describing: error))
         }
     }
 }

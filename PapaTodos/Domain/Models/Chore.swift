@@ -13,6 +13,11 @@ nonisolated struct Chore: Codable, Sendable, Identifiable, Equatable {
     var imageURL: URL?
     let createdAt: Date
     var updatedAt: Date
+    /// Embedded by the relational select (`assignedProfile:profiles!chores_assigned_to_fkey`).
+    var assignedProfile: ProfileSummary?
+    var createdProfile: ProfileSummary?
+    /// Embedded `chore_attachments`; nil when the select didn't request them.
+    var attachments: [ChoreAttachment]?
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, status
@@ -22,6 +27,7 @@ nonisolated struct Chore: Codable, Sendable, Identifiable, Equatable {
         case imageURL = "image_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case assignedProfile, createdProfile, attachments
     }
 }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-protocol ChoreRepository: Sendable {
+nonisolated protocol ChoreRepository: Sendable {
     func fetchChores() async throws -> [Chore]
     func fetchChore(id: UUID) async throws -> Chore?
     func create(_ draft: ChoreDraft) async throws -> Chore

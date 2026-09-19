@@ -37,7 +37,7 @@ struct FixtureRepositoryTests {
 
     @Test func authenticatingRejectsWrongCredentials() async {
         let authenticating = FixtureAuthenticating(validEmail: "a@b.com", validPassword: "secret")
-        await #expect(throws: FixtureAuthenticating.AuthenticationError.self) {
+        await #expect(throws: DataServiceError.invalidCredentials) {
             try await authenticating.signIn(email: "a@b.com", password: "wrong")
         }
         let session = try? await authenticating.currentSession()
