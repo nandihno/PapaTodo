@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Switches on `AppSession.phase`. Phase 2 replaces the signed-in placeholder
-/// with the real Home shell.
+/// Switches on `AppSession.phase`.
 struct ContentView: View {
     let environment: AppEnvironment
     @Environment(AppSession.self) private var session
@@ -13,7 +12,8 @@ struct ContentView: View {
         case .signedOut(let reason):
             SignInView(reason: reason)
         case .signedIn(let user):
-            SignedInStatusView(user: user, environment: environment)
+            MainView(user: user, environment: environment, session: session)
+                .id(user.userId)
         case .restoreFailed(let message):
             ContentUnavailableView {
                 Label("Can't restore session", systemImage: "wifi.exclamationmark")

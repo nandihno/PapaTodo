@@ -30,7 +30,7 @@ actor FixtureAuthenticating: Authenticating {
         guard email == validEmail, password == validPassword else {
             throw DataServiceError.invalidCredentials
         }
-        let record = AppSessionRecord(userId: UUID(), email: email)
+        let record = AppSessionRecord(userId: FixtureData.currentUserID, email: email)
         session = record
         broadcast(.signedIn(record))
     }

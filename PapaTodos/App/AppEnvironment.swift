@@ -18,11 +18,12 @@ struct AppEnvironment: Sendable {
     }
 
     static func fixture(
-        authenticating: any Authenticating = FixtureAuthenticating()
+        authenticating: any Authenticating = FixtureAuthenticating(),
+        failFirstChoreFetches: Int = 0
     ) -> AppEnvironment {
         AppEnvironment(
             authenticating: authenticating,
-            choreRepository: FixtureChoreRepository(),
+            choreRepository: FixtureChoreRepository(failFirstFetches: failFirstChoreFetches),
             commentRepository: FixtureCommentRepository(),
             profileRepository: FixtureProfileRepository()
         )

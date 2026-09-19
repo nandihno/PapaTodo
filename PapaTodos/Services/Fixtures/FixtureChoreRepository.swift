@@ -4,13 +4,21 @@ import Foundation
 /// Never talks to Supabase — see specification.md section 7.4.
 actor FixtureChoreRepository: ChoreRepository {
     private var chores: [UUID: Chore]
+    private var failuresRemaining: Int
 
-    init(chores: [Chore] = FixtureChoreRepository.sampleChores) {
+    /// - Parameter failFirstFetches: number of initial `fetchChores()` calls that throw
+    ///   `.offline`, so tests can exercise error and retry states deterministically.
+    init(chores: [Chore] = FixtureChoreRepository.sampleChores, failFirstFetches: Int = 0) {
         self.chores = Dictionary(uniqueKeysWithValues: chores.map { ($0.id, $0) })
+        self.failuresRemaining = failFirstFetches
     }
 
     func fetchChores() async throws -> [Chore] {
-        Array(chores.values)
+        if failuresRemaining > 0 {
+            failuresRemaining -= 1
+            throw DataServiceError.offline
+        }
+        return Array(chores.values)
     }
 
     func fetchChore(id: UUID) async throws -> Chore? {
@@ -70,60 +78,5 @@ actor FixtureChoreRepository: ChoreRepository {
 }
 
 extension FixtureChoreRepository {
-    /// A small, realistic fixture set spanning every DueTone/sort-rank case:
-    /// overdue, due today (timed and date-only), future, no due date, and done.
-    static let sampleChores: [Chore] = {
-        let calendar = Calendar.current
-        let now = Date()
-
-        func offsetDays(_ days: Int) -> Date {
-            calendar.date(byAdding: .day, value: days, to: now)!
-        }
-
-        return [
-            Chore(
-                id: UUID(), title: "Take out recycling",
-                description: "Bins go out Tuesday night.",
-                assignedTo: nil, createdBy: nil, status: .pending,
-                dueDate: DueDateRule.dateOnlyTimestamp(
-                    year: calendar.component(.year, from: offsetDays(-2)),
-                    month: calendar.component(.month, from: offsetDays(-2)),
-                    day: calendar.component(.day, from: offsetDays(-2))
-                ),
-                imageURL: nil, createdAt: offsetDays(-5), updatedAt: offsetDays(-5)
-            ),
-            Chore(
-                id: UUID(), title: "Vacuum lounge room",
-                description: nil,
-                assignedTo: nil, createdBy: nil, status: .pending,
-                dueDate: DueDateRule.dateOnlyTimestamp(
-                    year: calendar.component(.year, from: now),
-                    month: calendar.component(.month, from: now),
-                    day: calendar.component(.day, from: now)
-                ),
-                imageURL: nil, createdAt: offsetDays(-1), updatedAt: offsetDays(-1)
-            ),
-            Chore(
-                id: UUID(), title: "Water the garden",
-                description: nil,
-                assignedTo: nil, createdBy: nil, status: .pending,
-                dueDate: offsetDays(3),
-                imageURL: nil, createdAt: offsetDays(-3), updatedAt: offsetDays(-3)
-            ),
-            Chore(
-                id: UUID(), title: "Sort the pantry",
-                description: nil,
-                assignedTo: nil, createdBy: nil, status: .pending,
-                dueDate: nil,
-                imageURL: nil, createdAt: offsetDays(-4), updatedAt: offsetDays(-4)
-            ),
-            Chore(
-                id: UUID(), title: "Fold laundry",
-                description: nil,
-                assignedTo: nil, createdBy: nil, status: .done,
-                dueDate: offsetDays(-1),
-                imageURL: nil, createdAt: offsetDays(-2), updatedAt: offsetDays(-1)
-            ),
-        ]
-    }()
+    static var sampleChores: [Chore] { FixtureData.chores() }
 }

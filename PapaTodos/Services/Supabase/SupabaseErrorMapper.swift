@@ -11,9 +11,10 @@ nonisolated enum SupabaseErrorMapper {
             return known
         }
         if error is CancellationError {
-            return .server
+            return .cancelled
         }
         if let urlError = error as? URLError {
+            if urlError.code == .cancelled { return .cancelled }
             return isConnectivity(urlError) ? .offline : .server
         }
         if let authError = error as? AuthError {

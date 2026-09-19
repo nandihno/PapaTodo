@@ -57,6 +57,7 @@ This project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which implicitly 
 - **Plain value types and enum namespaces** (domain models, `Domain/Rules/*`, `AppConfiguration`): mark the type declaration `nonisolated`. This is valid and is the fix.
 - **`actor` types**: you cannot write `nonisolated init` on an actor's synchronous initializer — the compiler rejects it outright ("`nonisolated` on an actor's synchronous initializer is invalid"). Don't fight this: leave the actor MainActor-isolated and mark whatever calls its plain initializer synchronously (test functions, `AppEnvironment`) as `@MainActor` instead. See `FixtureAuthenticating`/`FixtureChoreRepository`/`FixtureCommentRepository` and `FixtureRepositoryTests`/`AppRouterTests` for the pattern.
 - Genuinely UI-bound observable state (`AppSession`, `AppRouter`) should stay `@MainActor` — that one's correct, not a workaround.
+- **Closures handed to UIKit/SwiftUI that run off the main thread** (for example `UIColor { traits in ... }` dynamic providers) inherit MainActor isolation too, and trap with `dispatch_assert_queue` when SwiftUI resolves them on a render thread. Build them inside a `nonisolated` function (see `personUIColor` in `Views/Support/ColorSupport.swift`). This only crashes at runtime, so a green build doesn't prove it's fine; run the UI tests.
 - When adding a new pure-logic type, build it and run its tests before assuming it's fine; this isolation inference is easy to miss until the compiler flags a specific call site.
 
 ## Supabase MCP access

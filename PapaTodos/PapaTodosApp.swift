@@ -29,6 +29,7 @@ struct PapaTodosApp: App {
                 ContentView(environment: environment)
                     .environment(session)
                     .environment(router)
+                    .preferredColorScheme(Self.forcedColorScheme)
                     .task { await session.restore() }
             } else {
                 ContentUnavailableView(
@@ -40,11 +41,19 @@ struct PapaTodosApp: App {
         }
     }
 
+    /// `-UITestDarkMode` forces dark appearance from inside the app, because switching
+    /// the simulator's appearance isn't reliable. Otherwise the system setting applies.
+    private static var forcedColorScheme: ColorScheme? {
+        ProcessInfo.processInfo.arguments.contains("-UITestDarkMode") ? .dark : nil
+    }
+
     /// `-UITestFixtures` swaps in deterministic fixtures so UI tests never touch
-    /// the live backend.
+    /// the live backend. `-UITestFailFirstLoad` makes the first chore fetch fail so
+    /// the error and retry states can be exercised.
     private static func resolveEnvironment() -> (environment: AppEnvironment?, error: String?) {
-        if ProcessInfo.processInfo.arguments.contains("-UITestFixtures") {
-            return (.fixture(), nil)
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UITestFixtures") {
+            return (.fixture(failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0), nil)
         }
         do {
             return (.live(configuration: try AppConfiguration.load()), nil)

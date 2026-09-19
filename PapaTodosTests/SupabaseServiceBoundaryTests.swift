@@ -8,7 +8,7 @@ import Testing
 /// decoding, and error mapping, without touching the network.
 @Suite(.serialized)
 struct SupabaseServiceBoundaryTests {
-    private func makeClient() -> SupabaseClient {
+    func makeClient() -> SupabaseClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
         return SupabaseClient(
@@ -100,6 +100,66 @@ struct SupabaseServiceBoundaryTests {
     }
 }
 
+extension SupabaseServiceBoundaryTests {
+    private static let profileRow = ##"[{"id":"22222222-2222-2222-2222-222222222222","full_name":"Mum","avatar_url":"https://e.com/a.png","personalisation":{"theme":"#111111","other":"keep"}}]"##
+
+    @Test func avatarUpdateTargetsOneRowAndSendsOnlyTheAvatar() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: Self.profileRow)
+        let id = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+        let profile = try await SupabaseProfileRepository(client: makeClient())
+            .updateAvatarURL(id: id, to: URL(string: "https://e.com/a.png"))
+
+        #expect(profile.avatarURL?.host == "e.com")
+        let request = try #require(StubURLProtocol.recorded.first)
+        #expect(request.method == "PATCH")
+        #expect(request.url.path == "/rest/v1/profiles")
+        #expect(request.url.query?.contains("id=eq.\(id.uuidString.lowercased())") == true)
+        #expect(request.bodyJSON?.keys.sorted() == ["avatar_url"])
+        #expect(request.bodyJSON?["avatar_url"] as? String == "https://e.com/a.png")
+    }
+
+    @Test func clearingTheAvatarSendsNull() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: Self.profileRow)
+        _ = try await SupabaseProfileRepository(client: makeClient()).updateAvatarURL(id: UUID(), to: nil)
+        let body = try #require(StubURLProtocol.recorded.first?.bodyJSON)
+        #expect(body["avatar_url"] is NSNull)
+    }
+
+    @Test func themeUpdateMergesIntoExistingPersonalisation() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respondInOrder([
+            (200, ##"[{"personalisation":{"theme":"#000000","other":"keep"}}]"##),
+            (200, Self.profileRow),
+        ])
+        _ = try await SupabaseProfileRepository(client: makeClient()).updateThemeColor(id: UUID(), to: "#123456")
+
+        let requests = StubURLProtocol.recorded
+        #expect(requests.map(\.method) == ["GET", "PATCH"])
+        let personalisation = try #require(requests[1].bodyJSON?["personalisation"] as? [String: Any])
+        #expect(personalisation["theme"] as? String == "#123456")
+        #expect(personalisation["other"] as? String == "keep")
+    }
+
+    @Test func updateThatChangesNoRowsIsAFailureNotASilentSuccess() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: "[]")
+        await #expect(throws: DataServiceError.server) {
+            _ = try await SupabaseProfileRepository(client: makeClient()).updateAvatarURL(id: UUID(), to: nil)
+        }
+    }
+
+    @Test func cancelledRequestsAreNotReportedAsServerErrors() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.fail(with: URLError(.cancelled))
+        await #expect(throws: DataServiceError.cancelled) {
+            _ = try await SupabaseChoreRepository(client: makeClient()).fetchChores()
+        }
+    }
+}
+
 struct SupabaseErrorMapperTests {
     @Test func sessionMissingMapsToExpired() {
         #expect(SupabaseErrorMapper.map(AuthError.sessionMissing) == .sessionExpired)
@@ -125,22 +185,35 @@ struct SupabaseErrorMapperTests {
 
 /// Global URLProtocol stub. The suite is `.serialized` because state is shared.
 final class StubURLProtocol: URLProtocol, @unchecked Sendable {
+    struct Recorded: Sendable {
+        let method: String
+        let url: URL
+        let body: Data?
+        var bodyJSON: [String: Any]? { body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
+    }
+
     private struct State {
-        var status = 200
-        var body = Data()
+        var responses: [(status: Int, body: Data)] = [(200, Data())]
         var failure: URLError?
         var lastRequest: URLRequest?
+        var recorded: [Recorded] = []
     }
     private static let state = LockedState(State())
 
     static var lastRequest: URLRequest? { state.withLock { $0.lastRequest } }
+    static var recorded: [Recorded] { state.withLock { $0.recorded } }
 
     static func reset() {
         state.withLock { $0 = State() }
     }
 
     static func respond(status: Int, body: String) {
-        state.withLock { $0 = State(status: status, body: Data(body.utf8)) }
+        state.withLock { $0 = State(responses: [(status, Data(body.utf8))]) }
+    }
+
+    /// Serves the responses in order; the last one repeats.
+    static func respondInOrder(_ responses: [(status: Int, body: String)]) {
+        state.withLock { $0 = State(responses: responses.map { ($0.status, Data($0.body.utf8)) }) }
     }
 
     static func fail(with error: URLError) {
@@ -151,24 +224,43 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
-        let snapshot = Self.state.withLock { state -> State in
+        let body = Self.readBody(of: request)
+        let (response, failure) = Self.state.withLock { state -> ((status: Int, body: Data), URLError?) in
             state.lastRequest = request
-            return state
+            state.recorded.append(Recorded(method: request.httpMethod ?? "GET", url: request.url!, body: body))
+            let next = state.responses.count > 1 ? state.responses.removeFirst() : state.responses[0]
+            return (next, state.failure)
         }
-        if let failure = snapshot.failure {
+        if let failure {
             client?.urlProtocol(self, didFailWithError: failure)
             return
         }
-        let response = HTTPURLResponse(
-            url: request.url!, statusCode: snapshot.status, httpVersion: nil,
+        let http = HTTPURLResponse(
+            url: request.url!, statusCode: response.status, httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
         )!
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: snapshot.body)
+        client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: response.body)
         client?.urlProtocolDidFinishLoading(self)
     }
 
     override func stopLoading() {}
+
+    /// `URLSession` hands request bodies to protocols as a stream, not `httpBody`.
+    private static func readBody(of request: URLRequest) -> Data? {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count <= 0 { break }
+            data.append(buffer, count: count)
+        }
+        return data
+    }
 }
 
 final class LockedState<Value>: @unchecked Sendable {

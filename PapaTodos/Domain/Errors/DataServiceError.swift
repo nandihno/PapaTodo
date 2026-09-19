@@ -9,6 +9,8 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
     /// A saved session could not be refreshed, or the server rejected the token.
     case sessionExpired
     case offline
+    /// The request was cancelled (view left, superseded). Never shown to the user.
+    case cancelled
     case server
     /// The operation exists on the protocol but is intentionally not wired up in
     /// the current phase (for example, chore writes before Phase 3).
@@ -22,6 +24,8 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
             "Your session expired. Please sign in again."
         case .offline:
             "You appear to be offline. Check your connection and try again."
+        case .cancelled:
+            nil
         case .server:
             "Something went wrong talking to the server. Please try again."
         case .notAvailableYet:
