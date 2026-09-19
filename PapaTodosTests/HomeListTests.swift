@@ -93,6 +93,13 @@ struct HomeListTests {
         #expect(titles(.all, query: "zzz", chores: chores).isEmpty)
     }
 
+    @Test func searchReadsTheVisibleTextOfHTMLDescriptionsNotTheMarkup() {
+        let chores = [chore("Pantry", description: "<ul><li>Cans</li><li>Jars</li></ul>")]
+        #expect(titles(.all, query: "jars", chores: chores) == ["Pantry"])
+        #expect(titles(.all, query: "<li>", chores: chores).isEmpty)
+        #expect(titles(.all, query: "ul", chores: chores).isEmpty)
+    }
+
     @Test func searchAppliesWithinTheActiveTab() {
         let chores = [
             chore("Bins", assignedTo: me),

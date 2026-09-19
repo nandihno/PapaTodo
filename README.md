@@ -4,7 +4,7 @@ Native iOS client for PapaBoard, a family chore-tracking app backed by Supabase.
 
 ## Status
 
-Phases 0 and 1 are complete (foundation, and sign-in with read-only shared data). Phase 2 (Home, search, Settings and personalization) is code-complete and simulator-verified, with the live comparison and device checks still open. Chore create/edit, detail/comments and notifications are not built yet. See `docs/phase-N-validation.md` for what has actually been verified, not just implemented.
+Phases 0, 1 and 2 are complete (foundation; sign-in and shared data; Home, search, Settings). Phase 3 (create/edit/delete chores, links in descriptions, photos) is code-complete and simulator-verified; its live smoke test and device checks are still open. Chore detail/comments and notifications are not built yet. See `docs/phase-N-validation.md` for what has actually been verified, not just implemented.
 
 Not yet done: source implementation of any user-facing feature, Supabase migration changes, Edge Function deployment, APNs delivery, or any TestFlight/production release step.
 

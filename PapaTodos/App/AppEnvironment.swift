@@ -6,6 +6,8 @@ struct AppEnvironment: Sendable {
     let choreRepository: any ChoreRepository
     let commentRepository: any CommentRepository
     let profileRepository: any ProfileRepository
+    let attachmentRepository: any AttachmentRepository
+    let attachmentStorage: any AttachmentStorage
 
     static func live(configuration: AppConfiguration) -> AppEnvironment {
         let client = SupabaseClientFactory.make(configuration: configuration)
@@ -13,7 +15,9 @@ struct AppEnvironment: Sendable {
             authenticating: SupabaseAuthenticating(client: client),
             choreRepository: SupabaseChoreRepository(client: client),
             commentRepository: SupabaseCommentRepository(client: client),
-            profileRepository: SupabaseProfileRepository(client: client)
+            profileRepository: SupabaseProfileRepository(client: client),
+            attachmentRepository: SupabaseAttachmentRepository(client: client),
+            attachmentStorage: SupabaseAttachmentStorage(client: client)
         )
     }
 
@@ -21,11 +25,15 @@ struct AppEnvironment: Sendable {
         authenticating: any Authenticating = FixtureAuthenticating(),
         failFirstChoreFetches: Int = 0
     ) -> AppEnvironment {
-        AppEnvironment(
+        let faults = FaultInjector()
+        let chores = FixtureChoreRepository(failFirstFetches: failFirstChoreFetches, faults: faults)
+        return AppEnvironment(
             authenticating: authenticating,
-            choreRepository: FixtureChoreRepository(failFirstFetches: failFirstChoreFetches),
+            choreRepository: chores,
             commentRepository: FixtureCommentRepository(),
-            profileRepository: FixtureProfileRepository()
+            profileRepository: FixtureProfileRepository(),
+            attachmentRepository: FixtureAttachmentRepository(faults: faults, chores: chores),
+            attachmentStorage: FixtureAttachmentStorage(faults: faults)
         )
     }
 }

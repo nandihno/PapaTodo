@@ -38,4 +38,6 @@ nonisolated struct ChoreDraft: Sendable {
     var assignedTo: UUID?
     var status: ChoreStatus
     var dueDate: Date?
+    /// Legacy primary image (`image_url`), kept in sync with the first attachment.
+    var imageURL: URL?
 }

@@ -9,6 +9,7 @@ enum MainRoute: Hashable {
 struct MainView: View {
     let user: AppSessionRecord
     let session: AppSession
+    let environment: AppEnvironment
 
     @State private var home: HomeModel
     @State private var profileStore: ProfileStore
@@ -18,6 +19,7 @@ struct MainView: View {
     init(user: AppSessionRecord, environment: AppEnvironment, session: AppSession) {
         self.user = user
         self.session = session
+        self.environment = environment
         let expire: @MainActor () -> Void = { [weak session] in session?.handleSessionExpired() }
         _home = State(initialValue: HomeModel(repository: environment.choreRepository, onSessionExpired: expire))
         _profileStore = State(initialValue: ProfileStore(
@@ -27,7 +29,7 @@ struct MainView: View {
 
     var body: some View {
         NavigationStack {
-            HomeView(user: user, home: home, profileStore: profileStore)
+            HomeView(user: user, home: home, profileStore: profileStore, environment: environment)
                 .navigationDestination(for: MainRoute.self) { route in
                     switch route {
                     case .settings:

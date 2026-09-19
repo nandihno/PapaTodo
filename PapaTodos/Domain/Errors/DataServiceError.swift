@@ -12,6 +12,9 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
     /// The request was cancelled (view left, superseded). Never shown to the user.
     case cancelled
     case server
+    /// Row-level security refused the write (for example, photos on a chore the user
+    /// neither created nor is assigned to).
+    case notPermitted
     /// The operation exists on the protocol but is intentionally not wired up in
     /// the current phase (for example, chore writes before Phase 3).
     case notAvailableYet
@@ -26,6 +29,8 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
             "You appear to be offline. Check your connection and try again."
         case .cancelled:
             nil
+        case .notPermitted:
+            "You don't have permission to do that. Photos can only be added or removed on chores you created or are assigned to."
         case .server:
             "Something went wrong talking to the server. Please try again."
         case .notAvailableYet:

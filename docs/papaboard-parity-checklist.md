@@ -45,7 +45,7 @@ Deliberate differences from the web app:
 
 ## Not yet ported (out of scope for Phase 0, needed by later phases)
 
-- **HTML-to-plain-text conversion for search** (`src/lib/descriptionHtml.js:57-70`, `descriptionToPlainText`) — uses browser DOM APIs to sanitize and strip HTML tags. `ChoreSearch.matches` currently searches `description` as-is; this is correct for plain-text descriptions and only degrades (searches raw markup) for HTML ones. Needs a real HTML parser — Phase 3 scope (rich-text rendering/editing).
+- *(Ported in Phase 3)*: HTML-to-plain-text for search (`descriptionToPlainText`) is now `DescriptionHTML.plainText`, and `ChoreSearch` uses it.
 - *(Ported in Phase 2, see above)*: `mergeCurrentUserProfile` and the card due-label text. The long-form detail date (`formatDetailDueDate`) is still not ported; it belongs to the Phase 4 detail screen.
 - **Calendar event construction** (`getDueCalendarParts`, `formatCalendarDate(Time)` in `src/lib/dueDates.js:106-147`) — Phase 4 scope (EventKit integration).
 - Relational-select-with-fallback pattern for chores/profiles (`src/lib/chores.js`) — informs Phase 1's repository implementation but wasn't ported since Phase 0 has no live Supabase-backed repository yet (only fixtures).

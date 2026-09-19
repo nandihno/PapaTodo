@@ -2,6 +2,7 @@ import Auth
 import Foundation
 import Helpers
 import PostgREST
+import Storage
 
 /// Maps SDK and transport errors to `DataServiceError`. The raw error is never
 /// shown to the user or logged with its payload (specification.md 11.2, 11.3).
@@ -21,10 +22,23 @@ nonisolated enum SupabaseErrorMapper {
             return map(authError)
         }
         if let postgrestError = error as? PostgrestError {
-            return isJWTProblem(code: postgrestError.code, message: postgrestError.message) ? .sessionExpired : .server
+            if isJWTProblem(code: postgrestError.code, message: postgrestError.message) { return .sessionExpired }
+            // 42501 = insufficient_privilege: row-level security refused the write.
+            return postgrestError.code == "42501" ? .notPermitted : .server
+        }
+        if let storageError = error as? StorageError {
+            switch storageError.statusCode {
+            case "401": return .sessionExpired
+            case "403": return .notPermitted
+            default: return .server
+            }
         }
         if let httpError = error as? HTTPError {
-            return httpError.response.statusCode == 401 ? .sessionExpired : .server
+            switch httpError.response.statusCode {
+            case 401: return .sessionExpired
+            case 403: return .notPermitted
+            default: return .server
+            }
         }
         return .server
     }

@@ -6,14 +6,37 @@ struct HomeView: View {
     let user: AppSessionRecord
     @Bindable var home: HomeModel
     let profileStore: ProfileStore
+    let environment: AppEnvironment
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(AppSession.self) private var session
+    @State private var presentedForm: FormRoute?
+
+    private enum FormRoute: Identifiable {
+        case create
+        case edit(Chore)
+
+        var id: String {
+            switch self {
+            case .create: "create"
+            case .edit(let chore): chore.id.uuidString
+            }
+        }
+    }
 
     var body: some View {
         content
             .navigationTitle("Chores")
             .searchable(text: $home.searchQuery, prompt: "Search chores")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        presentedForm = .create
+                    } label: {
+                        Label("New Chore", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("home.newChore")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(value: MainRoute.settings) {
                         ProfileAvatarView(
@@ -27,6 +50,35 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.settings")
                 }
             }
+            .sheet(item: $presentedForm) { route in
+                formView(for: route)
+            }
+    }
+
+    private func formView(for route: FormRoute) -> some View {
+        let mode: ChoreFormModel.Mode
+        let stored: String?
+        switch route {
+        case .create:
+            mode = .create
+            stored = nil
+        case .edit(let chore):
+            mode = .edit(chore)
+            stored = chore.description
+        }
+        let model = ChoreFormModel(
+            mode: mode,
+            saveService: ChoreSaveService(
+                chores: environment.choreRepository, attachments: environment.attachmentRepository, storage: environment.attachmentStorage
+            ),
+            deleteService: ChoreDeleteService(chores: environment.choreRepository, storage: environment.attachmentStorage),
+            profiles: environment.profileRepository,
+            onSessionExpired: { [weak session] in session?.handleSessionExpired() }
+        )
+        return ChoreFormView(model: model, storedDescription: stored) { notice in
+            home.showNotice(notice)
+            Task { await home.refresh() }
+        }
     }
 
     @ViewBuilder
@@ -58,6 +110,14 @@ struct HomeView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
 
+            if let notice = home.notice {
+                Section {
+                    Label(notice, systemImage: "info.circle")
+                        .accessibilityIdentifier("home.notice")
+                    Button("Dismiss") { home.dismissNotice() }
+                }
+            }
+
             if let error = home.refreshError {
                 Section {
                     Label("Couldn't refresh. Showing earlier results.", systemImage: "exclamationmark.triangle.fill")
@@ -79,7 +139,14 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.empty")
                 } else {
                     ForEach(visible) { chore in
-                        ChoreCardView(chore: chore)
+                        Button {
+                            presentedForm = .edit(chore)
+                        } label: {
+                            ChoreCardView(chore: chore)
+                                // Without this only the drawn text is tappable, not the gaps between it.
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             } header: {

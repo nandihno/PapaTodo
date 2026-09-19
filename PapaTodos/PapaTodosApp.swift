@@ -29,7 +29,6 @@ struct PapaTodosApp: App {
                 ContentView(environment: environment)
                     .environment(session)
                     .environment(router)
-                    .preferredColorScheme(Self.forcedColorScheme)
                     .task { await session.restore() }
             } else {
                 ContentUnavailableView(
@@ -39,12 +38,6 @@ struct PapaTodosApp: App {
                 )
             }
         }
-    }
-
-    /// `-UITestDarkMode` forces dark appearance from inside the app, because switching
-    /// the simulator's appearance isn't reliable. Otherwise the system setting applies.
-    private static var forcedColorScheme: ColorScheme? {
-        ProcessInfo.processInfo.arguments.contains("-UITestDarkMode") ? .dark : nil
     }
 
     /// `-UITestFixtures` swaps in deterministic fixtures so UI tests never touch

@@ -18,7 +18,7 @@ actor ControlledChoreRepository: ChoreRepository {
 
     func fetchChore(id: UUID) async throws -> Chore? { nil }
     func create(_ draft: ChoreDraft) async throws -> Chore { throw DataServiceError.notAvailableYet }
-    func update(id: UUID, draft: ChoreDraft) async throws -> Chore { throw DataServiceError.notAvailableYet }
+    func update(id: UUID, patch: ChorePatch) async throws -> Chore { throw DataServiceError.notAvailableYet }
     func updateStatus(id: UUID, status: ChoreStatus) async throws {}
     func delete(id: UUID) async throws {}
 }

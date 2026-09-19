@@ -178,6 +178,245 @@ final class PapaTodosUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Theme saved."].waitForExistence(timeout: 5))
     }
 
+    // MARK: create / edit / delete (Phase 3)
+
+    @MainActor
+    private func openNewChoreForm(_ app: XCUIApplication) {
+        let button = app.buttons["home.newChore"]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
+        XCTAssertTrue(app.textFields["form.title"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func card(_ app: XCUIApplication, containing text: String) -> XCUIElement {
+        cards(app).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// Taps a card once it has stopped moving (right after a tab switch it can still be animating).
+    @MainActor
+    private func openCard(_ app: XCUIApplication, containing text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let target = card(app, containing: text)
+        let hittable = NSPredicate(format: "exists == true AND hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: hittable, object: target)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 5), .completed, "card never became tappable", file: file, line: line)
+        target.tap()
+    }
+
+    /// On iOS 26 a confirmation dialog on iPhone shows only its non-cancel buttons; tapping
+    /// elsewhere dismisses it.
+    @MainActor
+    private func dismissDialogByTappingOutside(_ app: XCUIApplication) {
+        app.staticTexts["Edit Chore"].firstMatch.exists ? app.staticTexts["Edit Chore"].firstMatch.tap() : app.staticTexts["New Chore"].firstMatch.tap()
+    }
+
+    @MainActor
+    func testTitleIsRequiredThenANewChoreAppearsInTheList() throws {
+        let app = launchSignedIn()
+        waitForCards(app, count: 2)
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        openNewChoreForm(app)
+        app.buttons["form.save"].tap()
+        XCTAssertTrue(app.staticTexts["form.titleError"].waitForExistence(timeout: 3), "saving without a title must explain why")
+
+        let title = app.textFields["form.title"]
+        title.tap()
+        title.typeText("Buy birthday candles")
+        XCTAssertFalse(app.staticTexts["form.titleError"].exists, "the error clears once a title is typed")
+        app.buttons["form.save"].tap()
+
+        waitForCards(app, count: 5)
+        XCTAssertTrue(card(app, containing: "Buy birthday candles").exists)
+    }
+
+    @MainActor
+    func testEditingAChoreUpdatesItsCard() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        openCard(app, containing: "Water the garden")
+        let title = app.textFields["form.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, "Water the garden")
+        title.clearAndTypeText("Water the front garden")
+        app.buttons["form.save"].tap()
+
+        XCTAssertTrue(card(app, containing: "Water the front garden").waitForExistence(timeout: 5))
+        XCTAssertFalse(card(app, containing: "Water the garden.").exists)
+        waitForCards(app, count: 4)
+    }
+
+    @MainActor
+    func testDeletingAChoreNeedsConfirmationAndRemovesIt() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        openCard(app, containing: "Water the garden")
+        reveal(app.buttons["form.delete"], in: app)
+        app.buttons["form.delete"].tap()
+
+        // Nothing is deleted until the confirmation is accepted; dismiss it first.
+        let confirm = app.buttons["form.confirmDelete"].exists ? app.buttons["form.confirmDelete"] : app.buttons["Delete Chore"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        dismissDialogByTappingOutside(app)
+        XCTAssertTrue(app.buttons["form.delete"].waitForExistence(timeout: 3), "still on the form: nothing was deleted")
+        XCTAssertFalse(app.buttons["form.confirmDelete"].exists)
+
+        app.buttons["form.delete"].tap()
+        // Two buttons read "Delete Chore": the form's own row and the dialog's confirm button.
+        let labelled = app.buttons.matching(NSPredicate(format: "label == 'Delete Chore'"))
+        let dialogConfirm = app.buttons.matching(identifier: "form.confirmDelete").firstMatch
+        XCTAssertTrue(dialogConfirm.waitForExistence(timeout: 3) || labelled.count >= 2, "the confirmation must appear")
+        (dialogConfirm.exists ? dialogConfirm : labelled.element(boundBy: labelled.count - 1)).tap()
+
+        waitForCards(app, count: 3)
+        XCTAssertFalse(card(app, containing: "Water the garden").exists)
+    }
+
+    @MainActor
+    func testLeavingAnEditedFormAsksBeforeDiscarding() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+        app.textFields["form.title"].tap()
+        app.textFields["form.title"].typeText("Unsaved idea")
+
+        app.buttons["form.cancel"].tap()
+        XCTAssertTrue(app.buttons["Discard Changes"].waitForExistence(timeout: 3))
+        dismissDialogByTappingOutside(app)   // "keep editing"
+        XCTAssertFalse(app.buttons["Discard Changes"].waitForExistence(timeout: 1))
+        XCTAssertEqual(app.textFields["form.title"].value as? String, "Unsaved idea", "the draft survives")
+
+        app.buttons["form.cancel"].tap()
+        app.buttons["Discard Changes"].tap()
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testAnUneditedFormClosesWithoutAsking() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+        app.buttons["form.cancel"].tap()
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Discard Changes"].exists)
+    }
+
+    @MainActor
+    func testAPhotoCanBePreviewedRemovedAndSavedWithTheChore() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestSeedPhoto"])
+        openNewChoreForm(app)
+
+        let remove = app.buttons["form.removePhoto"]
+        reveal(remove, in: app)
+        XCTAssertEqual(app.buttons.matching(identifier: "form.removePhoto").count, 1)
+        remove.tap()
+        XCTAssertFalse(app.buttons["form.removePhoto"].exists, "a removed pending photo disappears")
+    }
+
+    @MainActor
+    func testSavingWithAPhotoAttachesIt() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestSeedPhoto"])
+        openNewChoreForm(app)
+        let title = app.textFields["form.title"]
+        title.tap()
+        title.typeText("Chore with photo")
+        app.buttons["form.save"].tap()
+
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        let saved = card(app, containing: "Chore with photo")
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertTrue(saved.label.contains("1 attachment"))
+    }
+
+    @MainActor
+    func testAddingALinkInsertsItAndRejectsUnsafeOnes() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+
+        let description = app.textViews["form.description"]
+        reveal(description, in: app)
+        description.tap()
+        description.typeText("Recipe: ")
+
+        app.buttons["form.addLink"].tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        field.typeText("javascript:alert(1)")
+        app.alerts.buttons["Add"].tap()
+        XCTAssertTrue(app.staticTexts["form.linkError"].waitForExistence(timeout: 3), "an unsafe address must be refused")
+
+        app.buttons["form.addLink"].tap()
+        let retry = app.alerts.textFields.firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 3))
+        retry.typeText("example.com/pasta")
+        app.alerts.buttons["Add"].tap()
+
+        XCTAssertFalse(app.staticTexts["form.linkError"].exists)
+        let value = description.value as? String ?? ""
+        XCTAssertTrue(value.contains("https://example.com/pasta"), "the link text was inserted: \(value)")
+    }
+
+    @MainActor
+    func testAStructuredDescriptionIsProtectedUntilExplicitlyEdited() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        openCard(app, containing: "Sort the pantry")
+        let shown = app.staticTexts["form.protectedDescription"]
+        reveal(shown, in: app)
+        XCTAssertTrue((shown.label).contains("Cans"))
+        XCTAssertFalse(app.textViews["form.description"].exists, "no editor until the user opts in")
+
+        // An unrelated edit leaves the description alone: rename and save.
+        let title = app.textFields["form.title"]
+        title.clearAndTypeText("Sort the pantry shelves")
+        app.buttons["form.save"].tap()
+        XCTAssertTrue(card(app, containing: "Sort the pantry shelves").waitForExistence(timeout: 5))
+
+        openCard(app, containing: "Sort the pantry shelves")
+        let again = app.staticTexts["form.protectedDescription"]
+        reveal(again, in: app)
+        XCTAssertTrue(again.label.contains("Cans"), "the list survived the rename")
+
+        reveal(app.buttons["form.editAsText"], in: app)
+        app.buttons["form.editAsText"].tap()
+        app.buttons["Edit as Text"].tap()
+        XCTAssertTrue(app.textViews["form.description"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testSearchFindsTextInsideAStructuredDescription() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+        let search = app.searchFields["Search chores"]
+        search.tap()
+        search.typeText("jars")
+        waitForCards(app, count: 1)
+        XCTAssertTrue(card(app, containing: "Sort the pantry").exists)
+    }
+
+    @MainActor
+    func testFormLayoutScreenshotsDefaultAndAccessibilitySize() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestSeedPhoto"])
+        openNewChoreForm(app)
+        attachScreenshot(app, named: "form-top")
+        reveal(app.buttons["form.removePhoto"], in: app)
+        attachScreenshot(app, named: "form-photos")
+        app.terminate()
+
+        let large = launchSignedIn(extraArguments: ["-UITestSeedPhoto", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openNewChoreForm(large)
+        attachScreenshot(large, named: "form-top-accessibility")
+        reveal(large.buttons["form.removePhoto"], in: large)
+        attachScreenshot(large, named: "form-photos-accessibility")
+        XCTAssertTrue(large.buttons["form.save"].exists, "Save stays reachable at the largest text size")
+    }
+
     // MARK: appearance
 
     @MainActor
@@ -219,12 +458,20 @@ final class PapaTodosUITests: XCTestCase {
     /// only expose rows that have been rendered.
     @MainActor
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 8, file: StaticString = #filePath, line: UInt = #line) {
+        let window = app.windows.firstMatch
+        func isOnScreen() -> Bool {
+            guard element.exists, !element.frame.isEmpty else { return false }
+            if element.isHittable { return true }
+            // Rows near the sheet's bottom edge can report not-hittable while fully visible.
+            let centre = element.frame.midY
+            return centre > window.frame.minY + 110 && centre < window.frame.maxY - 60
+        }
         var swipes = 0
-        while !element.isHittable && swipes < maxSwipes {
+        while !isOnScreen() && swipes < maxSwipes {
             app.swipeUp()
             swipes += 1
         }
-        XCTAssertTrue(element.isHittable, "Could not scroll \(element) into view", file: file, line: line)
+        XCTAssertTrue(element.exists && isOnScreen(), "Could not scroll \(element) into view", file: file, line: line)
     }
 
     @MainActor

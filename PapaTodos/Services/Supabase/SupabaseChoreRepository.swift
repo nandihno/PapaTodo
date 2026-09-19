@@ -40,18 +40,83 @@ nonisolated struct SupabaseChoreRepository: ChoreRepository {
     }
 
     func create(_ draft: ChoreDraft) async throws -> Chore {
-        throw DataServiceError.notAvailableYet
+        do {
+            // The creator is the authenticated user, read from the session, never from the caller.
+            let userID = try await client.auth.session.user.id
+            var values: [String: AnyJSON] = [
+                "title": .string(draft.title),
+                "description": Self.json(draft.description),
+                "assigned_to": Self.json(draft.assignedTo),
+                "status": .string(draft.status.rawValue),
+                "due_date": Self.json(draft.dueDate),
+                "image_url": Self.json(draft.imageURL),
+            ]
+            values["created_by"] = .string(userID.uuidString.lowercased())
+            return try await client.from("chores")
+                .insert(values)
+                .select(Self.select)
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw SupabaseErrorMapper.map(error)
+        }
     }
 
-    func update(id: UUID, draft: ChoreDraft) async throws -> Chore {
-        throw DataServiceError.notAvailableYet
+    func update(id: UUID, patch: ChorePatch) async throws -> Chore {
+        guard !patch.isEmpty else {
+            guard let current = try await fetchChore(id: id) else { throw DataServiceError.server }
+            return current
+        }
+        do {
+            var values: [String: AnyJSON] = [:]
+            if let title = patch.title { values["title"] = .string(title) }
+            if let description = patch.description { values["description"] = Self.json(description) }
+            if let assignedTo = patch.assignedTo { values["assigned_to"] = Self.json(assignedTo) }
+            if let status = patch.status { values["status"] = .string(status.rawValue) }
+            if let dueDate = patch.dueDate { values["due_date"] = Self.json(dueDate) }
+            if let imageURL = patch.imageURL { values["image_url"] = Self.json(imageURL) }
+            // Never sends created_by, and updated_at is maintained by a database trigger.
+            let rows: [Chore] = try await client.from("chores")
+                .update(values)
+                .eq("id", value: id)
+                .select(Self.select)
+                .execute()
+                .value
+            guard let chore = rows.first else { throw DataServiceError.server }
+            return chore
+        } catch {
+            throw SupabaseErrorMapper.map(error)
+        }
     }
 
     func updateStatus(id: UUID, status: ChoreStatus) async throws {
         throw DataServiceError.notAvailableYet
     }
 
+    /// Deletes the chore row; its comments and attachment rows are removed by the foreign
+    /// keys' `ON DELETE CASCADE`. Deleting an already-missing chore is not an error.
     func delete(id: UUID) async throws {
-        throw DataServiceError.notAvailableYet
+        do {
+            _ = try await client.from("chores")
+                .delete()
+                .eq("id", value: id)
+                .select("id")
+                .execute()
+        } catch {
+            throw SupabaseErrorMapper.map(error)
+        }
+    }
+
+    // MARK: JSON helpers
+
+    static func json(_ value: String?) -> AnyJSON { value.map { .string($0) } ?? .null }
+    static func json(_ value: UUID?) -> AnyJSON { value.map { .string($0.uuidString.lowercased()) } ?? .null }
+    static func json(_ value: URL?) -> AnyJSON { value.map { .string($0.absoluteString) } ?? .null }
+    static func json(_ value: Date?) -> AnyJSON {
+        guard let value else { return .null }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return .string(formatter.string(from: value))
     }
 }

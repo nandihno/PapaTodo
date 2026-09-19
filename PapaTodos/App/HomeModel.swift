@@ -26,6 +26,10 @@ final class HomeModel {
     /// A refresh failed but earlier results are still displayed.
     private(set) var refreshError: DataServiceError?
 
+    /// A note after a form save/delete that completed with a caveat (for example, photo
+    /// files that could not be removed from storage).
+    private(set) var notice: String?
+
     var tab: HomeTab = .mine
     var searchQuery = ""
 
@@ -36,6 +40,14 @@ final class HomeModel {
     init(repository: any ChoreRepository, onSessionExpired: @escaping @MainActor () -> Void = {}) {
         self.repository = repository
         self.onSessionExpired = onSessionExpired
+    }
+
+    func showNotice(_ message: String?) {
+        notice = message
+    }
+
+    func dismissNotice() {
+        notice = nil
     }
 
     func visibleChores(currentUserID: UUID, currentProfile: Profile?, now: Date = Date()) -> [Chore] {

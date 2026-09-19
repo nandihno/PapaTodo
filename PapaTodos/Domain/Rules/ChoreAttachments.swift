@@ -16,11 +16,22 @@ nonisolated enum ChoreAttachments {
         guard let imageURL = chore.imageURL else { return [] }
         return [
             ChoreAttachment(
-                id: chore.id, choreId: chore.id, storagePath: "", publicURL: imageURL,
+                id: chore.id, choreId: chore.id, storagePath: storagePath(fromPublicURL: imageURL) ?? "", publicURL: imageURL,
                 fileName: "photo attachment", mimeType: "image/*", sortOrder: 0,
                 createdBy: chore.createdBy, createdAt: chore.createdAt
             )
         ]
+    }
+
+    static let bucket = "chore-images"
+
+    /// The object path inside the bucket for a public URL, ported from
+    /// `getStoragePathFromPublicUrl`; nil when the URL isn't one of this bucket's objects.
+    static func storagePath(fromPublicURL url: URL) -> String? {
+        let marker = "/storage/v1/object/public/\(bucket)/"
+        guard let range = url.path.range(of: marker) else { return nil }
+        let path = String(url.path[range.upperBound...])
+        return path.isEmpty ? nil : path
     }
 
     static func primary(for chore: Chore) -> ChoreAttachment? {

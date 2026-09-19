@@ -14,6 +14,7 @@ struct ContentView: View {
         case .signedIn(let user):
             MainView(user: user, environment: environment, session: session)
                 .id(user.userId)
+                .preferredColorScheme(UITestHooks.forcedColorScheme)
         case .restoreFailed(let message):
             ContentUnavailableView {
                 Label("Can't restore session", systemImage: "wifi.exclamationmark")

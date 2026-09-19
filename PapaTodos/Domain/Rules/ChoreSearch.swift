@@ -4,11 +4,8 @@ import Foundation
 /// `HomeScreen.jsx`: a case-insensitive substring match across title, description,
 /// assignee name, creator name, and the human-readable status.
 ///
-/// PapaBoard runs `description` through `descriptionToPlainText` (HTML tag
-/// stripping) before searching it. That sanitizer needs a real HTML parser and is
-/// Phase 3 scope (rich-text rendering/editing) — until it exists, `description` is
-/// searched as-is, which is correct for plain-text descriptions and only degrades
-/// (searches raw markup) for HTML ones.
+/// Like PapaBoard's `descriptionToPlainText`, the description is reduced to its visible
+/// text first, so markup such as `<ul>` never matches a search.
 nonisolated enum ChoreSearch {
     static func statusLabel(for status: ChoreStatus) -> String {
         switch status {
@@ -29,7 +26,7 @@ nonisolated enum ChoreSearch {
 
         let searchableText = [
             chore.title,
-            chore.description,
+            DescriptionHTML.plainText(chore.description),
             assignedName,
             createdName,
             statusLabel(for: chore.status),

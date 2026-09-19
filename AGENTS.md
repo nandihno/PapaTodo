@@ -26,6 +26,8 @@ xcodebuild test \
   CODE_SIGNING_ALLOWED=NO
 ```
 
+Wrap long runs so a hang can't block you: `xcodebuild` sometimes **hangs after the tests finish when any test failed** (the run is over but the process never exits, and macOS has no `timeout`). Use `perl -e 'alarm 590; exec @ARGV' xcodebuild ...` and read the log. Exit 142 means the alarm fired; the results are still in the log.
+
 Get a valid simulator id with `xcrun simctl list devices available`. Never assume a build/test result — a successful `build-for-testing` proves compilation only, not that tests executed (specification.md section 13.4).
 
 ## Editing project.pbxproj
@@ -63,3 +65,13 @@ This project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which implicitly 
 ## Supabase MCP access
 
 This session has read/write access to the live Supabase project (`apaeocgssnkncputzolu`, name `choresDeleon`) via a connected MCP server. Prefer read-only calls (`list_tables`, `execute_sql` with SELECT, `get_advisors`) for schema/RLS audits. Anything that mutates production data or deploys migrations/functions needs explicit user authorization first, per specification.md section 11.1.
+
+## Testing gotchas learned the hard way
+
+- **Shared URLProtocol stub:** `StubURLProtocol` holds global state, so every test that uses it must live in the one `@Suite(.serialized)` (`SupabaseServiceBoundaryTests`, extended in `LiveWriteBoundaryTests.swift`). Separate suites run in parallel and trample each other, which shows up as random wrong-status failures. `#require` cannot be nested inside another `#require`.
+- **Raw strings:** a `#"..."#` literal ends at the first `"#`, so JSON containing `"#RRGGBB"` needs `##"..."##`.
+- **Lazy lists:** only rows that have been scrolled into view exist in the accessibility tree; UI tests use the `reveal` helper before touching rows below the fold.
+- **iOS 26 confirmation dialogs** on iPhone show only the non-cancel buttons; users (and tests) dismiss them by tapping outside. Don't look for a "Cancel"/"Keep Editing" button.
+- **Card taps:** a `.plain` Button only hit-tests drawn content, so the card label needs `.contentShape(Rectangle())`; otherwise tapping the middle of a card does nothing.
+- **Dark mode:** the simulator's appearance switch (`simctl ui appearance`, `XCUIDevice.appearance`) did not take effect on this setup, so screenshots use the in-app `-UITestDarkMode` launch argument.
+- **Launch arguments** (fixtures only): `-UITestFixtures`, `-UITestFailFirstLoad`, `-UITestDarkMode`, `-UITestSeedPhoto`.

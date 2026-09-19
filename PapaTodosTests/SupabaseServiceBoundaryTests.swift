@@ -86,16 +86,12 @@ struct SupabaseServiceBoundaryTests {
         #expect(query.contains("order=created_at.asc"))
     }
 
-    @Test func writesAreNotAvailableInPhase1() async {
+    @Test func statusChangesStayUnavailableUntilPhase4() async {
         StubURLProtocol.reset()
         let repository = SupabaseChoreRepository(client: makeClient())
-        let draft = ChoreDraft(title: "x", description: nil, assignedTo: nil, status: .pending, dueDate: nil)
-        await #expect(throws: DataServiceError.notAvailableYet) { _ = try await repository.create(draft) }
-        await #expect(throws: DataServiceError.notAvailableYet) { try await repository.delete(id: UUID()) }
         await #expect(throws: DataServiceError.notAvailableYet) {
             try await repository.updateStatus(id: UUID(), status: .done)
         }
-        // Nothing should have reached the network.
         #expect(StubURLProtocol.lastRequest == nil)
     }
 }

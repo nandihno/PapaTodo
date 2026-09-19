@@ -56,7 +56,7 @@ nonisolated enum FixtureData {
                   assignedTo: currentUserID, createdBy: currentUserID, status: .pending, dueDate: day(3),
                   imageURL: photo, createdAt: ago(3), updatedAt: ago(3),
                   assignedProfile: currentSummary, createdProfile: currentSummary),
-            Chore(id: UUID(), title: "Sort the pantry", description: nil,
+            Chore(id: UUID(), title: "Sort the pantry", description: "<ul><li>Cans</li><li>Jars</li></ul>",
                   assignedTo: nil, createdBy: otherUserID, status: .pending, dueDate: nil,
                   imageURL: nil, createdAt: ago(4), updatedAt: ago(4),
                   assignedProfile: nil, createdProfile: otherSummary),

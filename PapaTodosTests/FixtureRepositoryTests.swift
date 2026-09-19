@@ -14,9 +14,7 @@ struct FixtureRepositoryTests {
         #expect(try await repository.fetchChores().count == 1)
         #expect(try await repository.fetchChore(id: created.id) == created)
 
-        let updated = try await repository.update(id: created.id, draft: ChoreDraft(
-            title: "Renamed", description: nil, assignedTo: nil, status: .inProgress, dueDate: nil
-        ))
+        let updated = try await repository.update(id: created.id, patch: ChorePatch(title: "Renamed", status: .inProgress))
         #expect(updated.title == "Renamed")
         #expect(updated.status == .inProgress)
 
