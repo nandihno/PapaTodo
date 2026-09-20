@@ -3,7 +3,7 @@
 Date: 2026-09-20
 Plan: `docs/phase-5-plan.md` (approved by the user 2026-09-20).
 
-**Status: Stage A (the native app) is code complete and verified on the simulator against fakes and a stubbed network. Stages B, C and D are not started.** Nothing on the backend has been changed for Phase 5, no secret has been set, and no notification has been sent to anyone. The exit gate below is not met yet.
+**Status: Stage A (the native app) and Stage B (the backend code) are written, committed and tested locally. Stages C (secrets, migration, deploy) and D (device checks) have not started.** Nothing on the live backend has been changed for Phase 5, no secret has been set, the function has not been deployed, and no notification has been sent to anyone. The exit gate below is not met yet. Steps for the remaining work are in `docs/phase-5-deploy-runbook.md`.
 
 ## Stage A: what was built
 
@@ -22,18 +22,28 @@ Plan: `docs/phase-5-plan.md` (approved by the user 2026-09-20).
 - New UI coverage: the Home prompt (turn on, Not Now), Settings in each permission state, turning notifications on from Settings, and a notification tap that arrives before sign-in opening the right chore (and "not found" for a missing one).
 - Real Apple push delivery cannot be tested on the simulator here; that is Stage D on a device.
 
+## Stage B: what was built (PapaBoard repo, commit `a58fd09`)
+
+- **`send-push` delivers to iPhones as well as browsers.** New modules `apns.ts` (provider token signed from the `.p8` with ES256, HTTP/2 request to the sandbox or production host chosen per device, payload with the title and body plus `choreId` and `eventType` for tap routing, `apns-topic` from the bundle id, a collapse id per chore so newer notifications replace older ones, response classification) and `notifications.ts` (the who-is-told-what rules, extracted unchanged). `index.ts` runs Web Push and APNs at the same time and independently.
+- **Off until configured.** APNs is used only if all four secrets exist (`APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`); without them the function behaves exactly as the deployed version does.
+- **Recipient and de-duplication rules are unchanged** (creator and assignee minus the caller; assignment de-duplicated through `notification_deliveries`, shared by both channels) and pinned by tests.
+- **Cleanup and diagnostics.** Only a device APNs says is gone (410, `BadDeviceToken`, `DeviceTokenNotForTopic`) is removed; expired or refused credentials, network errors, rate limits and our own request mistakes never remove a registration. An expired provider token is replaced once and the send retried. Logs carry counts and Apple's reason strings only, never device tokens, the key, or message text.
+- **Migrations tracked in the repo:** `notification_devices` (already live; verified read-only against the file: same columns, constraints, four own-rows policies, two `security definer` functions with an empty search path), the `chore-images` DELETE policy (applied 2026-09-20), and a new, **unapplied** migration that revokes the two device functions from `anon`.
+- **Tests:** `npm run test:functions` runs 30 tests under Node and they also pass under Deno (which found two things Node hid: a deterministic-signature assumption in my tests, and a type error that was already in the original function). They cover the provider token (its ES256 signature is verified against a generated key pair), token caching and refresh, the exact request headers and payload, every response classification, per-device isolation, the expired-token retry, transient failures, and that no result or summary ever contains a token or key. `deno check` on `index.ts` is clean, which the original was not.
+- **Not tested:** a real request to Apple. That needs the secrets, a deployed function and a device (Stages C and D).
+
 ## Exit gate
 
 | Item | Status |
 |---|---|
-| Web Push regression checks pass | Not started (Stage B). |
+| Web Push regression checks pass | Recipient and wording rules pinned by unit tests; the live check needs the deploy (Stage C). |
 | Sandbox APNs accepts a correctly signed request | Not started (Stage B/C: needs the secrets and a deployed function). |
 | A development device receives assignment, update, comment and status notifications | Not started (Stage D). |
 | Foreground presentation is verified | Code done; needs a device (Stage D). |
 | A tap opens the correct chore after cold launch, warm launch and session restoration | Verified in UI tests for the sign-in case; device check pending (Stage D). |
-| Invalid-token cleanup is evidenced | Not started (Stage B). |
+| Invalid-token cleanup is evidenced | Logic and classification unit-tested; live evidence needs a device (Stage D). |
 | TestFlight/production APNs environment validated separately | Not started. |
 
 ## Next
 
-Stage B, the backend, in the PapaBoard repo: review and commit the `notification_devices` migration, revoke the register/unregister functions from `anon`, and extend `send-push` to deliver over APNs. Written and tested locally; setting the secrets, applying the migrations and deploying each need the user's explicit go-ahead.
+Stage C: the user sets the four secrets, then, with explicit go-ahead, I apply the small `anon` migration and deploy `send-push`. Then Stage D on the user's iPhone. See `docs/phase-5-deploy-runbook.md`.
