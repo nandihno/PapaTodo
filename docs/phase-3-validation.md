@@ -40,7 +40,7 @@ Images keep full web parity, per the user's stated priority.
 | Existing rich descriptions render and unrelated edits don't destroy markup | **Met** in unit and UI tests. |
 | Multi-photo upload/remove/gallery ordering matches the web client | **Met against fakes** (same `sort_order` rule, primary-image and legacy `image_url` handling). The full-screen gallery is Phase 4. |
 | Injected failures leave no known new Storage or database orphans | **Met against fakes; not achievable on the live project today** (see backend finding). Leftover files are reported to the user, not hidden. |
-| Physical device verifies PhotosPicker and copied-image handling | **Partly met.** A photo was added on device (user-reported, presumably via the picker); copied-image Paste not reported. |
+| Physical device verifies PhotosPicker and copied-image handling | **Met** (user-reported): a photo was added on device and pasting a copied image works. |
 
 ## Backend findings (read-only audit, 2026-09-19; nothing changed or deployed)
 
@@ -67,7 +67,9 @@ On a physical device against the live project the user reported: created a new c
 
 On delete the user saw the note "Chore deleted. 1 photo file is still in storage and can't be removed yet." (screenshot shared). **This confirms backend finding 1 on the live project:** the bucket refused the file delete, the app detected it by comparing what was removed with what was requested, and reported it instead of hiding it. The test photo's file is therefore still in the public `chore-images` bucket and needs a one-off cleanup once a DELETE policy exists (or manual removal in the Supabase dashboard).
 
-**Not yet reported:** adding a link to the description; multiple photos; Paste from the clipboard; editing an existing chore (title only, checking that the description and due date stay unchanged); and removing a single photo on save. The create and delete under live RLS gate item is therefore met for the basic path only.
+On 2026-09-20 the user also reported that **a link in a description and pasting an image both work correctly** on the device (user-reported, not itemized further).
+
+**Still not reported:** multiple photos on one chore; editing an existing chore (title only, checking that the description and due date stay unchanged); and removing a single photo on save. The create and delete under live RLS gate item is met for the basic path.
 
 ## Live smoke test (steps)
 
