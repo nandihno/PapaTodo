@@ -32,18 +32,34 @@ Plan: `docs/phase-5-plan.md` (approved by the user 2026-09-20).
 - **Tests:** `npm run test:functions` runs 30 tests under Node and they also pass under Deno (which found two things Node hid: a deterministic-signature assumption in my tests, and a type error that was already in the original function). They cover the provider token (its ES256 signature is verified against a generated key pair), token caching and refresh, the exact request headers and payload, every response classification, per-device isolation, the expired-token retry, transient failures, and that no result or summary ever contains a token or key. `deno check` on `index.ts` is clean, which the original was not.
 - **Not tested:** a real request to Apple. That needs the secrets, a deployed function and a device (Stages C and D).
 
+## Stage C: deployed (2026-09-20)
+
+- Migration `202609200002` applied: `register_notification_device` and `unregister_notification_device` are executable by `authenticated`, `postgres` and `service_role` only (read back from `information_schema.routine_privileges`; no `anon`).
+- `send-push` deployed as version 4 (was 2), `verify_jwt` on, with the exact committed `index.ts`, `apns.ts` and `notifications.ts`. A call with no credentials returns 401 and the CORS preflight returns 200.
+
+## Stage D: device verification (2026-09-20/21)
+
+Device: the user's iPhone, Debug build (sandbox APNs). Second account: Savina, who has a web subscription and no app.
+
+- **Registration:** turning notifications on created one `notification_devices` row for Nando: `sandbox`, bundle `org.nando.PapaTodos`, 64-character token.
+- **Delivery:** Savina commented on a chore involving Nando and the iPhone received the banner. This is the first real send and proves the secrets, the ES256 provider token and Deno to Apple over HTTP/2 all work.
+- **Defect found and fixed:** tapping the banner with the app force-quit did nothing. The crash report (`PapaTodos-2026-09-20-144934.ips`) shows SIGABRT inside `AppDelegate.userNotificationCenter(_:didReceive:)`: the handler was `nonisolated`, so it completed on a background thread, and the system's follow-up UIKit snapshot and state-restoration call asserts the main thread. Fix: the delegate conforms as `@MainActor UNUserNotificationCenterDelegate` and both callbacks (tap and foreground presentation) run on the main actor. 305 unit tests pass. The UI tests could not have caught this because they simulate the tap rather than receiving one from the system.
+- **After the fix:** the user confirmed on the device that notifications work and the app opens correctly from a tapped banner.
+
+Not observed and still open: the four event types other than a comment (assigned, updated, status changed) on the device, the foreground banner and warm-launch tap as separate checks, invalid-token cleanup (uninstall, then trigger an event, expecting the row to be deleted), the Web Push regression check, and the production APNs environment (TestFlight).
+
 ## Exit gate
 
 | Item | Status |
 |---|---|
-| Web Push regression checks pass | Recipient and wording rules pinned by unit tests; the live check needs the deploy (Stage C). |
-| Sandbox APNs accepts a correctly signed request | Not started (Stage B/C: needs the secrets and a deployed function). |
-| A development device receives assignment, update, comment and status notifications | Not started (Stage D). |
-| Foreground presentation is verified | Code done; needs a device (Stage D). |
-| A tap opens the correct chore after cold launch, warm launch and session restoration | Verified in UI tests for the sign-in case; device check pending (Stage D). |
-| Invalid-token cleanup is evidenced | Logic and classification unit-tested; live evidence needs a device (Stage D). |
+| Web Push regression checks pass | Recipient and wording rules pinned by unit tests; function deployed. Live check by a second account not yet done. |
+| Sandbox APNs accepts a correctly signed request | **Verified.** A real push reached the iPhone through the deployed function. |
+| A development device receives assignment, update, comment and status notifications | Comment verified on the device; the other three not yet exercised. |
+| Foreground presentation is verified | Code done and now main-actor; not yet observed on the device. |
+| A tap opens the correct chore after cold launch, warm launch and session restoration | Cold launch verified on the device after the crash fix; sign-in case in UI tests; warm launch not separately recorded. |
+| Invalid-token cleanup is evidenced | Logic and classification unit-tested; live evidence (uninstall, then trigger) not yet gathered. |
 | TestFlight/production APNs environment validated separately | Not started. |
 
 ## Next
 
-Stage C: the user sets the four secrets, then, with explicit go-ahead, I apply the small `anon` migration and deploy `send-push`. Then Stage D on the user's iPhone. See `docs/phase-5-deploy-runbook.md`.
+Finish the remaining device checks above (other event types, foreground, warm launch, uninstall cleanup, a Web Push regression from a second account), then decide whether to treat Phase 5 as complete. Production APNs is validated with a TestFlight build in Phase 6.
