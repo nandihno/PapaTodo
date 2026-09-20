@@ -6,22 +6,14 @@ struct HomeView: View {
     let user: AppSessionRecord
     @Bindable var home: HomeModel
     let profileStore: ProfileStore
-    let environment: AppEnvironment
+    let formFactory: ChoreFormFactory
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(AppSession.self) private var session
     @State private var presentedForm: FormRoute?
 
     private enum FormRoute: Identifiable {
         case create
-        case edit(Chore)
-
-        var id: String {
-            switch self {
-            case .create: "create"
-            case .edit(let chore): chore.id.uuidString
-            }
-        }
+        var id: String { "create" }
     }
 
     var body: some View {
@@ -56,26 +48,7 @@ struct HomeView: View {
     }
 
     private func formView(for route: FormRoute) -> some View {
-        let mode: ChoreFormModel.Mode
-        let stored: String?
-        switch route {
-        case .create:
-            mode = .create
-            stored = nil
-        case .edit(let chore):
-            mode = .edit(chore)
-            stored = chore.description
-        }
-        let model = ChoreFormModel(
-            mode: mode,
-            saveService: ChoreSaveService(
-                chores: environment.choreRepository, attachments: environment.attachmentRepository, storage: environment.attachmentStorage
-            ),
-            deleteService: ChoreDeleteService(chores: environment.choreRepository, storage: environment.attachmentStorage),
-            profiles: environment.profileRepository,
-            onSessionExpired: { [weak session] in session?.handleSessionExpired() }
-        )
-        return ChoreFormView(model: model, storedDescription: stored) { notice in
+        ChoreFormView(model: formFactory.makeModel(mode: .create), storedDescription: nil) { notice, _ in
             home.showNotice(notice)
             Task { await home.refresh() }
         }
@@ -139,14 +112,13 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.empty")
                 } else {
                     ForEach(visible) { chore in
-                        Button {
-                            presentedForm = .edit(chore)
-                        } label: {
+                        NavigationLink(value: MainRoute.detail(chore.id)) {
                             ChoreCardView(chore: chore)
                                 // Without this only the drawn text is tappable, not the gaps between it.
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        // On the link (the row) so each chore is one element, not two.
+                        .accessibilityIdentifier("chore.card")
                     }
                 }
             } header: {

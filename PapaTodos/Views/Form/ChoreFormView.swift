@@ -7,8 +7,9 @@ extension ChoreStatus {
 /// The create / edit chore form. Presented as a sheet from Home.
 struct ChoreFormView: View {
     @State private var model: ChoreFormModel
-    /// Called once after a successful save or delete, with an optional caveat to show.
-    let onFinished: (String?) -> Void
+    /// Called once after a successful save or delete, with an optional caveat to show and
+    /// whether the chore was deleted.
+    let onFinished: (String?, Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var isConfirmingDiscard = false
@@ -16,7 +17,7 @@ struct ChoreFormView: View {
     /// The stored description, kept for the read-only view of a protected one.
     private let storedDescription: String?
 
-    init(model: ChoreFormModel, storedDescription: String?, onFinished: @escaping (String?) -> Void) {
+    init(model: ChoreFormModel, storedDescription: String?, onFinished: @escaping (String?, Bool) -> Void) {
         _model = State(initialValue: model)
         self.storedDescription = storedDescription
         self.onFinished = onFinished
@@ -83,7 +84,7 @@ struct ChoreFormView: View {
             .task { await seedPhotoForUITests() }
             .onChange(of: model.didFinish) { _, finished in
                 guard finished else { return }
-                onFinished(model.notice)
+                onFinished(model.notice, model.wasDeleted)
                 dismiss()
             }
         }

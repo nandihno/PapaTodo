@@ -42,6 +42,23 @@ final class HomeModel {
         self.onSessionExpired = onSessionExpired
     }
 
+    /// Reflects a change made on the detail screen (such as a new status) immediately, before the
+    /// next refresh, so the list never disagrees with the screen the user just left.
+    func upsert(_ chore: Chore) {
+        if let index = chores.firstIndex(where: { $0.id == chore.id }) {
+            var merged = chore
+            // The detail copy may lack embedded rows the list already has.
+            merged.assignedProfile = chore.assignedProfile ?? chores[index].assignedProfile
+            merged.createdProfile = chore.createdProfile ?? chores[index].createdProfile
+            merged.attachments = chore.attachments ?? chores[index].attachments
+            chores[index] = merged
+        }
+    }
+
+    func remove(id: UUID) {
+        chores.removeAll { $0.id == id }
+    }
+
     func showNotice(_ message: String?) {
         notice = message
     }

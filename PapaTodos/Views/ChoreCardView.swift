@@ -38,7 +38,6 @@ struct ChoreCardView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
-        .accessibilityIdentifier("chore.card")
     }
 
     private var statusBadge: some View {

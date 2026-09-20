@@ -48,4 +48,18 @@ nonisolated enum ChoreDueLabel {
         )
         .replacingOccurrences(of: ",", with: "")
     }
+
+    /// The long due date on the detail screen, ported from `formatDetailDueDate`:
+    /// "Sunday 20 September 2026", with " at 3:00 pm" when a time was chosen.
+    static func detail(
+        for dueDate: Date?, calendar: Calendar = .current, locale: Locale = .current
+    ) -> String {
+        guard let dueDate else { return "No due date" }
+        let day = dueDate.formatted(
+            Date.FormatStyle(date: .omitted, time: .omitted, locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+                .weekday(.wide).day().month(.wide).year()
+        ).replacingOccurrences(of: ",", with: "")
+        guard DueDateRule.hasDueTime(dueDate, calendar: calendar) else { return day }
+        return "\(day) at \(timeText(dueDate, calendar: calendar, locale: locale))"
+    }
 }

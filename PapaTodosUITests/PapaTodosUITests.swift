@@ -200,7 +200,30 @@ final class PapaTodosUITests: XCTestCase {
         let hittable = NSPredicate(format: "exists == true AND hittable == true")
         let expectation = XCTNSPredicateExpectation(predicate: hittable, object: target)
         XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 5), .completed, "card never became tappable", file: file, line: line)
-        target.tap()
+        // Near the top, not the centre: at the largest text sizes a card is taller than the screen,
+        // so its centre point can be off-screen.
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+    }
+
+    /// Opens a chore's detail screen from the list.
+    @MainActor
+    private func openDetail(_ app: XCUIApplication, containing text: String) {
+        openCard(app, containing: text)
+        XCTAssertTrue(app.buttons["detail.status"].waitForExistence(timeout: 5), "the detail screen should open")
+    }
+
+    /// Opens a chore's edit form: card, then the Edit button on the detail screen.
+    @MainActor
+    private func openEditor(_ app: XCUIApplication, containing text: String) {
+        openDetail(app, containing: text)
+        app.buttons["detail.edit"].tap()
+        XCTAssertTrue(app.textFields["form.title"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func backToList(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5))
     }
 
     /// On iOS 26 a confirmation dialog on iPhone shows only its non-cancel buttons; tapping
@@ -232,20 +255,21 @@ final class PapaTodosUITests: XCTestCase {
     }
 
     @MainActor
-    func testEditingAChoreUpdatesItsCard() throws {
+    func testEditingAChoreFromItsDetailUpdatesTheDetailAndTheList() throws {
         let app = launchSignedIn()
         app.segmentedControls["home.tabs"].buttons["All"].tap()
         waitForCards(app, count: 4)
 
-        openCard(app, containing: "Water the garden")
+        openEditor(app, containing: "Water the garden")
         let title = app.textFields["form.title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertEqual(title.value as? String, "Water the garden")
         title.clearAndTypeText("Water the front garden")
         app.buttons["form.save"].tap()
 
+        // Back on the detail screen, showing the new title.
+        XCTAssertTrue(app.navigationBars["Water the front garden"].waitForExistence(timeout: 5))
+        backToList(app)
         XCTAssertTrue(card(app, containing: "Water the front garden").waitForExistence(timeout: 5))
-        XCTAssertFalse(card(app, containing: "Water the garden.").exists)
         waitForCards(app, count: 4)
     }
 
@@ -255,7 +279,7 @@ final class PapaTodosUITests: XCTestCase {
         app.segmentedControls["home.tabs"].buttons["All"].tap()
         waitForCards(app, count: 4)
 
-        openCard(app, containing: "Water the garden")
+        openEditor(app, containing: "Water the garden")
         reveal(app.buttons["form.delete"], in: app)
         app.buttons["form.delete"].tap()
 
@@ -273,6 +297,8 @@ final class PapaTodosUITests: XCTestCase {
         XCTAssertTrue(dialogConfirm.waitForExistence(timeout: 3) || labelled.count >= 2, "the confirmation must appear")
         (dialogConfirm.exists ? dialogConfirm : labelled.element(boundBy: labelled.count - 1)).tap()
 
+        // Deleting from the detail screen returns to the list, without the chore.
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5))
         waitForCards(app, count: 3)
         XCTAssertFalse(card(app, containing: "Water the garden").exists)
     }
@@ -365,7 +391,7 @@ final class PapaTodosUITests: XCTestCase {
         app.segmentedControls["home.tabs"].buttons["All"].tap()
         waitForCards(app, count: 4)
 
-        openCard(app, containing: "Sort the pantry")
+        openEditor(app, containing: "Sort the pantry")
         let shown = app.staticTexts["form.protectedDescription"]
         reveal(shown, in: app)
         XCTAssertTrue((shown.label).contains("Cans"))
@@ -375,9 +401,11 @@ final class PapaTodosUITests: XCTestCase {
         let title = app.textFields["form.title"]
         title.clearAndTypeText("Sort the pantry shelves")
         app.buttons["form.save"].tap()
+        XCTAssertTrue(app.navigationBars["Sort the pantry shelves"].waitForExistence(timeout: 5))
+        backToList(app)
         XCTAssertTrue(card(app, containing: "Sort the pantry shelves").waitForExistence(timeout: 5))
 
-        openCard(app, containing: "Sort the pantry shelves")
+        openEditor(app, containing: "Sort the pantry shelves")
         let again = app.staticTexts["form.protectedDescription"]
         reveal(again, in: app)
         XCTAssertTrue(again.label.contains("Cans"), "the list survived the rename")
@@ -415,6 +443,189 @@ final class PapaTodosUITests: XCTestCase {
         reveal(large.buttons["form.removePhoto"], in: large)
         attachScreenshot(large, named: "form-photos-accessibility")
         XCTAssertTrue(large.buttons["form.save"].exists, "Save stays reachable at the largest text size")
+    }
+
+    // MARK: detail screen (Phase 4)
+
+    @MainActor
+    func testTappingACardOpensTheDetailScreenWithEverythingTheWebShows() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Water the garden")
+
+        XCTAssertTrue(app.navigationBars["Water the garden"].exists)
+        XCTAssertEqual(app.buttons["detail.status"].label, "Status: Pending")
+        XCTAssertTrue(app.staticTexts["detail.dueDate"].exists)
+        XCTAssertTrue(app.buttons["detail.markDone"].exists)
+        XCTAssertTrue(app.buttons["detail.saveToCalendar"].exists)
+        XCTAssertTrue(app.buttons["detail.googleCalendar"].exists)
+        XCTAssertTrue(app.buttons["detail.edit"].exists)
+        XCTAssertTrue(app.textFields["detail.commentField"].exists)
+    }
+
+    @MainActor
+    func testTheStatusButtonCyclesThroughPendingInProgressDoneAndBack() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Water the garden")
+        let status = app.buttons["detail.status"]
+
+        status.tap()
+        XCTAssertTrue(NSPredicate(format: "label == 'Status: In progress'").evaluate(with: nil) || waitForLabel(status, "Status: In progress"))
+        status.tap()
+        XCTAssertTrue(waitForLabel(status, "Status: Done"))
+        XCTAssertFalse(app.buttons["detail.markDone"].exists, "Mark as Done is hidden once done")
+        status.tap()
+        XCTAssertTrue(waitForLabel(status, "Status: Pending"))
+        XCTAssertTrue(app.buttons["detail.markDone"].exists)
+    }
+
+    @MainActor
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 5) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    func testMarkAsDoneMovesTheChoreToTheDoneTabAndTheListAgrees() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Water the garden")
+        app.buttons["detail.markDone"].tap()
+        XCTAssertTrue(waitForLabel(app.buttons["detail.status"], "Status: Done"))
+        backToList(app)
+
+        // Mine (active, assigned to me) loses it; Done gains it: the list already reflects the change.
+        waitForCards(app, count: 1)
+        app.segmentedControls["home.tabs"].buttons["Done"].tap()
+        waitForCards(app, count: 2)
+        XCTAssertTrue(card(app, containing: "Water the garden").exists)
+    }
+
+    @MainActor
+    func testCommentsShowAuthorsAndANewCommentCanBePosted() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Take out recycling")
+
+        let comments = app.descendants(matching: .any).matching(identifier: "detail.comment")
+        reveal(comments.firstMatch, in: app)
+        XCTAssertEqual(comments.count, 2)
+        XCTAssertTrue(comments.element(boundBy: 0).label.contains("Alex Sample"))
+        XCTAssertTrue(comments.element(boundBy: 0).label.contains("Bins go out after dinner."))
+
+        let send = app.buttons["detail.sendComment"]
+        XCTAssertFalse(send.isEnabled, "Send is off until there is text")
+
+        let field = app.textFields["detail.commentField"]
+        field.tap()
+        field.typeText("   ")
+        XCTAssertFalse(send.isEnabled, "whitespace alone is not a comment")
+        field.typeText("Done, thanks!")
+        XCTAssertTrue(send.isEnabled)
+        send.tap()
+
+        XCTAssertTrue(waitForCount(comments, 3))
+        XCTAssertEqual(field.value as? String, "Add a comment…", "the field clears after sending")
+        XCTAssertTrue(comments.element(boundBy: 2).label.contains("Family Tester"))
+        XCTAssertTrue(comments.element(boundBy: 2).label.contains("Done, thanks!"))
+    }
+
+    /// A page of the photo viewer, found by its accessibility label (query subscripts match identifiers).
+    @MainActor
+    private func viewerPage(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+    }
+
+    @MainActor
+    private func waitForCount(_ query: XCUIElementQuery, _ count: Int, timeout: TimeInterval = 5) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == %d", count), object: query)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    func testACommentFromAnotherDeviceAppearsLiveWithoutReloading() async throws {
+        let app = launchSignedIn(extraArguments: ["-UITestRemoteComment"])
+        openDetail(app, containing: "Take out recycling")
+
+        let comments = app.descendants(matching: .any).matching(identifier: "detail.comment")
+        reveal(comments.firstMatch, in: app)
+
+        // About 1.5 seconds after the screen subscribes, another client posts. Nothing is tapped here.
+        XCTAssertTrue(waitForCount(comments, 3, timeout: 10), "the new comment should arrive over the live stream")
+        XCTAssertTrue(comments.element(boundBy: 2).label.contains("Posted from another device"))
+
+        // The fetch and the stream may both have delivered it; it must still appear exactly once.
+        try? await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(comments.count, 3, "no duplicate after the live update")
+    }
+
+    @MainActor
+    func testPhotosOpenFullScreenAndCanBeSwipedAndClosed() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Take out recycling")
+
+        app.buttons["detail.photo"].tap()
+        XCTAssertTrue(viewerPage(app, "Photo 1 of 3").waitForExistence(timeout: 5), "the full-screen viewer opens on the first photo")
+
+        app.swipeLeft()
+        XCTAssertTrue(viewerPage(app, "Photo 2 of 3").waitForExistence(timeout: 3))
+
+        app.buttons["Close full screen photo"].tap()
+        XCTAssertTrue(app.buttons["detail.status"].waitForExistence(timeout: 5), "closing returns to the detail screen")
+    }
+
+    @MainActor
+    func testAThumbnailOpensThatPhotoInTheViewer() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Take out recycling")
+        let thumbs = app.buttons.matching(identifier: "detail.thumb")
+        XCTAssertTrue(thumbs.element(boundBy: 2).waitForExistence(timeout: 5))
+        thumbs.element(boundBy: 2).tap()
+        XCTAssertTrue(viewerPage(app, "Photo 3 of 3").waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testSaveToCalendarOpensTheSystemEventScreen() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Water the garden")
+        // The button starts under the pinned comment bar; scroll it clear of the bar first.
+        reveal(app.buttons["detail.saveToCalendar"], in: app)
+        app.swipeUp()
+        app.buttons["detail.saveToCalendar"].tap()
+
+        // The system "New Event" screen: the user picks the calendar and confirms there. It is drawn
+        // out of process, so UI tests can't see its buttons (or that it covers our screen). Give it
+        // time to draw, then tap where its X is. That same spot on *our* screen is the Back button,
+        // so if the sheet had not appeared this tap would leave the detail screen and the check
+        // below would fail: staying on the detail screen proves the sheet was there and closed.
+        Thread.sleep(forTimeInterval: 6)
+        attachScreenshot(app, named: "calendar-event-screen")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.095, dy: 0.115)).tap()
+        XCTAssertTrue(app.buttons["detail.status"].waitForExistence(timeout: 8), "the event screen closed and we are still on the detail screen")
+        XCTAssertFalse(app.staticTexts["Added to your calendar."].exists, "cancelling must not claim success")
+    }
+
+    @MainActor
+    func testAChoreWithoutADueDateHasNoCalendarButtons() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+        openDetail(app, containing: "Sort the pantry")
+        XCTAssertFalse(app.buttons["detail.saveToCalendar"].exists)
+        XCTAssertFalse(app.buttons["detail.googleCalendar"].exists)
+    }
+
+    @MainActor
+    func testDetailLayoutAtDefaultAndAccessibilitySizes() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Take out recycling")
+        attachScreenshot(app, named: "detail-top")
+        reveal(app.textFields["detail.commentField"], in: app)
+        attachScreenshot(app, named: "detail-comments")
+        app.terminate()
+
+        let large = launchSignedIn(extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openDetail(large, containing: "Take out recycling")
+        attachScreenshot(large, named: "detail-top-accessibility")
+        XCTAssertTrue(large.buttons["detail.markDone"].exists || large.buttons["detail.status"].exists)
+        XCTAssertTrue(large.textFields["detail.commentField"].exists, "the comment bar stays reachable at the largest text size")
     }
 
     // MARK: appearance

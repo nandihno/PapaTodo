@@ -198,3 +198,21 @@ struct HomeListTests {
         #expect(ChoreAttachments.all(for: both).count == 3)
     }
 }
+
+struct DetailDueDateTests {
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Australia/Melbourne")!
+        return calendar
+    }()
+
+    @Test func matchesTheWebsLongFormat() throws {
+        let dateOnly = try #require(DueDateRule.dateOnlyTimestamp(year: 2026, month: 9, day: 20, calendar: calendar))
+        #expect(ChoreDueLabel.detail(for: dateOnly, calendar: calendar, locale: Locale(identifier: "en_AU")) == "Sunday 20 September 2026")
+
+        let timed = try #require(DueDateRule.timedTimestamp(year: 2026, month: 9, day: 20, hour: 15, minute: 30, calendar: calendar))
+        let label = ChoreDueLabel.detail(for: timed, calendar: calendar, locale: Locale(identifier: "en_AU"))
+        #expect(label.hasPrefix("Sunday 20 September 2026 at 3:30"))
+        #expect(ChoreDueLabel.detail(for: nil) == "No due date")
+    }
+}

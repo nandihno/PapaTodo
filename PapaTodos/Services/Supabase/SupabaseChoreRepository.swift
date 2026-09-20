@@ -90,8 +90,21 @@ nonisolated struct SupabaseChoreRepository: ChoreRepository {
         }
     }
 
+    /// Sets only the status; `updated_at` is maintained by a database trigger. Zero rows
+    /// changed means the chore is gone (or the write was refused), which is a failure.
     func updateStatus(id: UUID, status: ChoreStatus) async throws {
-        throw DataServiceError.notAvailableYet
+        struct IDRow: Decodable { let id: UUID }
+        do {
+            let rows: [IDRow] = try await client.from("chores")
+                .update(["status": AnyJSON.string(status.rawValue)])
+                .eq("id", value: id)
+                .select("id")
+                .execute()
+                .value
+            guard !rows.isEmpty else { throw DataServiceError.server }
+        } catch {
+            throw SupabaseErrorMapper.map(error)
+        }
     }
 
     /// Deletes the chore row; its comments and attachment rows are removed by the foreign

@@ -52,6 +52,10 @@ Images keep full web parity, per the user's stated priority.
    on storage.objects for delete to authenticated
    using (bucket_id = 'chore-images' and (storage.foldername(name))[1] = auth.uid()::text);
    ```
+   **Prepared, not applied (2026-09-20):** the migration is written as `supabase/migrations/202609200001_allow_chore_image_delete.sql` in the PapaBoard repo (uncommitted there, alongside the user's own uncommitted work). It needs the user's review and authorization before it is applied.
+
+   **Scale of the existing problem (read-only count, 2026-09-20):** 36 of the 38 files in `chore-images` are not referenced by any attachment row or chore. The policy only stops new orphans; the existing ones need a one-off cleanup through the Storage API (dashboard or a script), because deleting `storage.objects` rows by SQL leaves the underlying files behind.
+
    Trade-off: it cannot remove files another family member uploaded (for example an assignee deleting a creator's photo); those would still be left behind. Files already orphaned would need a one-off cleanup.
 2. **Attachment rows are properly scoped:** only a chore's creator or assignee can add or delete photos; anyone signed in can still edit the chore's text. The app maps the refusal to a clear message and rolls back what the save created.
 3. **`chores` INSERT has `with check (true)` and no `created_by` default**, so the creator is not enforced by the database. The app sets it from the session on create and never sends it on update.

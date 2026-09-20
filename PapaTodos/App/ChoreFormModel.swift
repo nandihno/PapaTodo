@@ -54,6 +54,8 @@ final class ChoreFormModel {
     /// A non-blocking note after a successful save/delete (for example, files left in storage).
     private(set) var notice: String?
     private(set) var didFinish = false
+    /// The finish was a delete, not a save.
+    private(set) var wasDeleted = false
 
     // MARK: baselines for change detection
 
@@ -249,6 +251,7 @@ final class ChoreFormModel {
             if !outcome.leftoverPaths.isEmpty {
                 notice = "Chore deleted. \(outcome.leftoverPaths.count == 1 ? "1 photo file is" : "\(outcome.leftoverPaths.count) photo files are") still in storage and can't be removed yet."
             }
+            wasDeleted = true
             didFinish = true
         case .failure(let error):
             if error == .sessionExpired {

@@ -86,14 +86,6 @@ struct SupabaseServiceBoundaryTests {
         #expect(query.contains("order=created_at.asc"))
     }
 
-    @Test func statusChangesStayUnavailableUntilPhase4() async {
-        StubURLProtocol.reset()
-        let repository = SupabaseChoreRepository(client: makeClient())
-        await #expect(throws: DataServiceError.notAvailableYet) {
-            try await repository.updateStatus(id: UUID(), status: .done)
-        }
-        #expect(StubURLProtocol.lastRequest == nil)
-    }
 }
 
 extension SupabaseServiceBoundaryTests {

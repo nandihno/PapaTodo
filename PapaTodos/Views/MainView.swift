@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MainRoute: Hashable {
     case settings
+    case detail(UUID)
 }
 
 /// The signed-in shell: owns the Home and profile state, applies the profile theme,
@@ -29,13 +30,15 @@ struct MainView: View {
 
     var body: some View {
         NavigationStack {
-            HomeView(user: user, home: home, profileStore: profileStore, environment: environment)
+            HomeView(user: user, home: home, profileStore: profileStore, formFactory: formFactory)
                 .navigationDestination(for: MainRoute.self) { route in
                     switch route {
                     case .settings:
                         SettingsView(user: user, store: profileStore) {
                             Task { await session.signOut() }
                         }
+                    case .detail(let id):
+                        detailView(for: id)
                     }
                 }
         }
@@ -46,6 +49,27 @@ struct MainView: View {
             if phase == .active {
                 Task { await home.refresh() }
             }
+        }
+    }
+
+    private var formFactory: ChoreFormFactory {
+        ChoreFormFactory(environment: environment, session: session)
+    }
+
+    private func detailView(for id: UUID) -> some View {
+        let model = ChoreDetailModel(
+            choreID: id,
+            seed: home.chores.first { $0.id == id },
+            choreRepository: environment.choreRepository,
+            commentRepository: environment.commentRepository,
+            profileRepository: environment.profileRepository,
+            calendarStatus: { CalendarAccess.current() },
+            onChoreChanged: { [home] updated in home.upsert(updated) },
+            onSessionExpired: { [weak session] in session?.handleSessionExpired() }
+        )
+        return ChoreDetailView(model: model, formFactory: formFactory) { [home] deleted in
+            if deleted { home.remove(id: id) }
+            Task { await home.refresh() }
         }
     }
 

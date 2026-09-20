@@ -39,6 +39,27 @@ Deliberate differences from the web app:
 - Pale or very dark themes keep the default accent on controls (contrast guard); the web app applies any hex.
 - Cards are not tappable yet: chore detail is Phase 4.
 
+## Ported in Phase 4 (verified against source, with passing tests)
+
+Google Calendar URLs and event text were checked against output from PapaBoard's own `calendar.js` (run under `TZ=Australia/Melbourne`, with HTML entities decoded as a browser does).
+
+| Behavior | PapaBoard source | Swift port | Tests |
+|---|---|---|---|
+| Google Calendar link (title, local start/end, description, `ctz`) | `src/lib/calendar.js` `getGoogleCalendarUrl` | `GoogleCalendarURL` | `CalendarEventTests` (3 exact URLs) |
+| Event title, description, assignee line, reminder note | `calendar.js` `getEventTitle` / `getEventDescription` / `htmlToText` | `CalendarEventDraft`, `DescriptionHTML.calendarText` | `CalendarEventTests` |
+| Date-only = one-day all-day event, alerts 1 day before and on the day; timed = 30 minutes, alerts 2 hours and 30 minutes before | `calendar.js` `getIcsDateLines` / `getIcsAlarmLines` | `CalendarEventDraft.make` | `CalendarEventTests` |
+| Status cycle pending, in progress, done, pending; Mark as Done | `ChoreDetailScreen.jsx` `nextStatus` / `updateStatus` | `ChoreStatus.next`, `ChoreDetailModel` | `CommentRulesTests`, `ChoreDetailModelTests` |
+| Comments oldest first with author profiles; time-ago labels | `ChoreDetailScreen.jsx` `fetchCommentsWithProfiles` / `formatTimeAgo` | `CommentThread`, `CommentTime`, author lookup | `CommentRulesTests`, `ChoreDetailModelTests` |
+| Long due date ("Sunday 20 September 2026 at 3:30 pm") | `dueDates.js` `formatDetailDueDate` | `ChoreDueLabel.detail` | `DetailDueDateTests` |
+| Photo hero, attachment strip, full-screen photo | `ChoreDetailScreen.jsx` | `ChoreDetailView`, `PhotoViewerView` | UI tests |
+
+Deliberate differences from the web app:
+
+- **Save to Calendar** opens the system "New Event" screen (EventKit UI) instead of downloading an `.ics` file: the user picks the calendar and confirms there, and only an explicit save counts as success. The event title is prefixed "Papa Todos:" (the product name) rather than "PapaBoard:".
+- Comment Realtime events are applied to the list directly (deduplicated by id) rather than refetching everything on every event; the list is reloaded after a reconnect or foregrounding to catch anything missed.
+- Status changes wait for the server to confirm before the screen changes.
+- Notification dispatch after a status change or comment is not sent (Phase 5).
+
 ## Deliberately simplified during the port (behaviorally identical, verified against source)
 
 - `getDueDisplay`'s "Tomorrow" case and the `dueDay < afterTomorrow ? 'today' : 'upcoming'` branch in the final `else` are dead code in the JS — by the time either is reached, `dueDay` is always ≥ `afterTomorrow`, so the ternary is always `false`. `ChoreDueState.tone` collapses these into a single `.upcoming` result for every non-today, non-overdue, non-done chore. Same for `getDueSortRank`'s unreachable trailing `return 3`.

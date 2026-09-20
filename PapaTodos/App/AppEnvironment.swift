@@ -1,3 +1,5 @@
+import Foundation
+
 /// Bundles the app's backend-access dependencies behind protocols, per
 /// specification.md section 7.4. `.live` talks to Supabase; `.fixture` keeps the
 /// app and its tests fully deterministic.
@@ -23,14 +25,20 @@ struct AppEnvironment: Sendable {
 
     static func fixture(
         authenticating: any Authenticating = FixtureAuthenticating(),
-        failFirstChoreFetches: Int = 0
+        failFirstChoreFetches: Int = 0,
+        remoteComment: Bool = false
     ) -> AppEnvironment {
         let faults = FaultInjector()
         let chores = FixtureChoreRepository(failFirstFetches: failFirstChoreFetches, faults: faults)
+        let remote = remoteComment ? ChoreComment(
+            id: UUID(), choreId: FixtureData.recyclingID, authorId: FixtureData.otherUserID,
+            body: "Posted from another device", createdAt: Date()
+        ) : nil
+        let comments = FixtureCommentRepository(comments: FixtureData.comments(), remoteCommentOnFirstSubscribe: remote)
         return AppEnvironment(
             authenticating: authenticating,
             choreRepository: chores,
-            commentRepository: FixtureCommentRepository(),
+            commentRepository: comments,
             profileRepository: FixtureProfileRepository(),
             attachmentRepository: FixtureAttachmentRepository(faults: faults, chores: chores),
             attachmentStorage: FixtureAttachmentStorage(faults: faults)

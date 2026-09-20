@@ -218,4 +218,84 @@ extension SupabaseServiceBoundaryTests {
             )
         }
     }
+
+    // MARK: status (Phase 4)
+
+    @Test func aStatusChangeSendsOnlyTheStatusForOneChore() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: #"[{"id":"11111111-1111-1111-1111-111111111111"}]"#)
+        let id = UUID()
+
+        try await SupabaseChoreRepository(client: try makeSignedInClient()).updateStatus(id: id, status: .inProgress)
+
+        let request = try #require(StubURLProtocol.recorded.first)
+        #expect(request.method == "PATCH")
+        #expect(request.url.query?.lowercased().contains("id=eq.\(id.uuidString.lowercased())") == true)
+        #expect(request.bodyJSON?.keys.sorted() == ["status"])
+        #expect(request.bodyJSON?["status"] as? String == "in_progress")
+    }
+
+    @Test func aStatusChangeThatChangesNoRowsIsAFailure() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: "[]")
+        await #expect(throws: DataServiceError.server) {
+            try await SupabaseChoreRepository(client: try makeSignedInClient()).updateStatus(id: UUID(), status: .done)
+        }
+    }
+
+    // MARK: comments (Phase 4)
+
+    private static let commentRow = #"{"id":"33333333-3333-3333-3333-333333333333","chore_id":"11111111-1111-1111-1111-111111111111","author_id":"aaaaaaaa-0000-0000-0000-000000000001","body":"hi","created_at":"2026-09-20T01:02:03.456789+00:00"}"#
+
+    @Test func aCommentIsAuthoredByTheSessionUserAndTrimmed() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 201, body: Self.commentRow)
+        let choreID = UUID()
+
+        let stored = try await SupabaseCommentRepository(client: try makeSignedInClient()).addComment(choreID: choreID, body: "  hi  ")
+
+        #expect(stored.body == "hi")
+        let request = try #require(StubURLProtocol.recorded.first { $0.method == "POST" })
+        #expect(request.url.path == "/rest/v1/chore_comments")
+        let body = try #require(request.bodyJSON)
+        #expect(body["author_id"] as? String == signedInUserID.uuidString.lowercased())
+        #expect(body["chore_id"] as? String == choreID.uuidString.lowercased())
+        #expect(body["body"] as? String == "hi")
+        #expect(body.keys.sorted() == ["author_id", "body", "chore_id"])
+    }
+
+    @Test func aBlankCommentNeverReachesTheNetwork() async throws {
+        StubURLProtocol.reset()
+        await #expect(throws: DataServiceError.self) {
+            _ = try await SupabaseCommentRepository(client: try makeSignedInClient()).addComment(choreID: UUID(), body: "  \n ")
+        }
+        #expect(StubURLProtocol.recorded.isEmpty)
+    }
+
+    // MARK: realtime mapping
+
+    private func record(_ json: String) throws -> [String: AnyJSON] {
+        try JSONDecoder().decode([String: AnyJSON].self, from: Data(json.utf8))
+    }
+
+    @Test func realtimeInsertsAndUpdatesDecodeIntoComments() throws {
+        let row = try record(Self.commentRow)
+        guard case .inserted(let inserted)? = RealtimeCommentMapper.inserted(record: row) else { Issue.record("expected insert"); return }
+        #expect(inserted.body == "hi")
+        #expect(inserted.choreId.uuidString.lowercased() == "11111111-1111-1111-1111-111111111111")
+        guard case .updated(let updated)? = RealtimeCommentMapper.updated(record: row) else { Issue.record("expected update"); return }
+        #expect(updated.id == inserted.id)
+    }
+
+    @Test func aRealtimeDeleteCarriesOnlyTheID() throws {
+        let change = RealtimeCommentMapper.deleted(oldRecord: try record(#"{"id":"33333333-3333-3333-3333-333333333333"}"#))
+        #expect(change == .deleted(id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!))
+    }
+
+    @Test func unreadableRealtimeRowsAreDroppedNotFatal() throws {
+        #expect(RealtimeCommentMapper.inserted(record: try record(#"{"id":"not-a-uuid","body":5}"#)) == nil)
+        #expect(RealtimeCommentMapper.updated(record: [:]) == nil)
+        #expect(RealtimeCommentMapper.deleted(oldRecord: [:]) == nil)
+        #expect(RealtimeCommentMapper.deleted(oldRecord: try record(#"{"id":"nope"}"#)) == nil)
+    }
 }

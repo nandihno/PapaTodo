@@ -46,7 +46,10 @@ struct PapaTodosApp: App {
     private static func resolveEnvironment() -> (environment: AppEnvironment?, error: String?) {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UITestFixtures") {
-            return (.fixture(failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0), nil)
+            return (.fixture(
+                failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0,
+                remoteComment: arguments.contains("-UITestRemoteComment")
+            ), nil)
         }
         do {
             return (.live(configuration: try AppConfiguration.load()), nil)
