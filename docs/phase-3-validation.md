@@ -52,7 +52,7 @@ Images keep full web parity, per the user's stated priority.
    on storage.objects for delete to authenticated
    using (bucket_id = 'chore-images' and (storage.foldername(name))[1] = auth.uid()::text);
    ```
-   **Prepared, not applied (2026-09-20):** the migration is written as `supabase/migrations/202609200001_allow_chore_image_delete.sql` in the PapaBoard repo (uncommitted there, alongside the user's own uncommitted work). It needs the user's review and authorization before it is applied.
+   **Applied 2026-09-20 with the user's authorization** (Supabase migration `allow_chore_image_delete`, version 20260920021458): the policy "Users can delete their own chore images" now exists on `storage.objects` for `authenticated` (`bucket_id = 'chore-images'` and the first folder equals `auth.uid()`), verified by reading `pg_policies`. The INSERT and SELECT policies are unchanged and the bucket still held 38 files immediately afterwards (nothing was deleted). The source file is `supabase/migrations/202609200001_allow_chore_image_delete.sql` in the PapaBoard repo (uncommitted there, alongside the user's own uncommitted work; the applied version number differs from the file's prefix, as with the earlier Realtime migration). The live behavior after this change (a delete really removes the file, and the "still in storage" note stops appearing) still needs a device check.
 
    **Scale of the existing problem (read-only count, 2026-09-20):** 36 of the 38 files in `chore-images` are not referenced by any attachment row or chore. The policy only stops new orphans; the existing ones need a one-off cleanup through the Storage API (dashboard or a script), because deleting `storage.objects` rows by SQL leaves the underlying files behind.
 
