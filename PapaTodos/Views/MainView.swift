@@ -16,6 +16,9 @@ struct MainView: View {
     @State private var profileStore: ProfileStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(AppRouter.self) private var router
+    @Environment(PushRegistrationModel.self) private var push
+    @State private var path = NavigationPath()
 
     init(user: AppSessionRecord, environment: AppEnvironment, session: AppSession) {
         self.user = user
@@ -29,7 +32,7 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             HomeView(user: user, home: home, profileStore: profileStore, formFactory: formFactory)
                 .navigationDestination(for: MainRoute.self) { route in
                     switch route {
@@ -45,6 +48,20 @@ struct MainView: View {
         .tint(tint)
         .task { await home.load() }
         .task { await profileStore.load() }
+        .task { await push.sessionDidSignIn() }
+        .onDisappear { push.sessionDidSignOut() }
+        // A tapped notification (or a UI test) asks to open a chore: replace the stack with Home then
+        // that chore. The router keeps the request until here, so a tap that arrives while signed out
+        // or still restoring the session is honored after sign-in.
+        .onChange(of: router.pendingChoreRoute, initial: true) { _, _ in
+            if let id = router.consumePendingRoute() {
+                path = NavigationPath([MainRoute.detail(id)])
+            }
+        }
+        .task {
+            // A notification arriving while the app is open: bring the list up to date.
+            PushBridge.shared.onForegroundNotification = { [home] in Task { await home.refresh() } }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await home.refresh() }
@@ -63,6 +80,7 @@ struct MainView: View {
             choreRepository: environment.choreRepository,
             commentRepository: environment.commentRepository,
             profileRepository: environment.profileRepository,
+            notifier: environment.notifier,
             calendarStatus: { CalendarAccess.current() },
             onChoreChanged: { [home] updated in home.upsert(updated) },
             onSessionExpired: { [weak session] in session?.handleSessionExpired() }

@@ -39,6 +39,9 @@ nonisolated struct ChoreSaveService: Sendable {
     struct Success: Sendable {
         var chore: Chore
         var warnings: [Warning]
+        /// The notification this save should trigger, matching the web app: a new chore that has an
+        /// assignee sends `chore-assigned`; an edit that changed something sends `chore-updated`.
+        var notification: PushEvent?
     }
 
     struct Failure: Error, Sendable {
@@ -101,7 +104,7 @@ nonisolated struct ChoreSaveService: Sendable {
             }
         }
         let latest = (try? await chores.fetchChore(id: created.id)) ?? created
-        return .success(Success(chore: latest, warnings: []))
+        return .success(Success(chore: latest, warnings: [], notification: draft.assignedTo == nil ? nil : .choreAssigned))
     }
 
     // MARK: edit
@@ -151,7 +154,8 @@ nonisolated struct ChoreSaveService: Sendable {
         }
 
         let latest = (try? await chores.fetchChore(id: original.id)) ?? updated
-        return .success(Success(chore: latest, warnings: warnings))
+        let changedSomething = !patch.isEmpty || !newRows.isEmpty || !request.remove.isEmpty
+        return .success(Success(chore: latest, warnings: warnings, notification: changedSomething ? .choreUpdated : nil))
     }
 
     // MARK: cleanup helpers

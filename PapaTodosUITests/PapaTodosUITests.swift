@@ -647,6 +647,96 @@ final class PapaTodosUITests: XCTestCase {
         XCTAssertTrue(large.textFields["detail.commentField"].exists, "the comment bar stays reachable at the largest text size")
     }
 
+    // MARK: notifications (Phase 5)
+
+    /// The recycling chore's fixed fixture id, as a notification tap would carry it.
+    private let recyclingChoreID = "CCCCCCCC-0000-0000-0000-000000000001"
+
+    @MainActor
+    func testTheHomePromptOffersNotificationsAndTurningThemOnHidesIt() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestNotificationStatus", "notDetermined"])
+        let prompt = app.descendants(matching: .any)["home.notificationPrompt"]
+        XCTAssertTrue(app.buttons["home.enableNotifications"].waitForExistence(timeout: 5), "an undecided user is offered notifications")
+        XCTAssertTrue(app.buttons["home.dismissNotificationPrompt"].exists)
+        _ = prompt
+
+        app.buttons["home.enableNotifications"].tap()
+        let gone = NSPredicate(format: "exists == false")
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: app.buttons["home.enableNotifications"])], timeout: 5),
+            .completed, "the prompt goes away once notifications are on"
+        )
+
+        app.buttons["home.settings"].tap()
+        reveal(app.staticTexts["Notifications are on."], in: app)
+        XCTAssertTrue(app.staticTexts["Notifications are on."].exists)
+    }
+
+    @MainActor
+    func testNotNowDismissesThePrompt() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestNotificationStatus", "notDetermined"])
+        XCTAssertTrue(app.buttons["home.dismissNotificationPrompt"].waitForExistence(timeout: 5))
+        app.buttons["home.dismissNotificationPrompt"].tap()
+        let gone = NSPredicate(format: "exists == false")
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: app.buttons["home.enableNotifications"])], timeout: 5),
+            .completed
+        )
+        // Settings still lets them turn notifications on later.
+        app.buttons["home.settings"].tap()
+        reveal(app.buttons["settings.enableNotifications"], in: app)
+        XCTAssertTrue(app.buttons["settings.enableNotifications"].exists)
+    }
+
+    @MainActor
+    func testSettingsShowsThePermissionStateAndHowToChangeIt() throws {
+        // Denied: explain, and offer the system Settings.
+        let denied = launchSignedIn(extraArguments: ["-UITestNotificationStatus", "denied"])
+        XCTAssertFalse(denied.buttons["home.enableNotifications"].exists, "no prompt once the user has said no")
+        denied.buttons["home.settings"].tap()
+        reveal(denied.buttons["settings.openSystemSettings"], in: denied)
+        XCTAssertTrue(denied.staticTexts["Notifications are turned off for Papa Todos."].exists)
+        denied.terminate()
+
+        // Already on: no prompt, and Settings says so.
+        let on = launchSignedIn(extraArguments: ["-UITestNotificationStatus", "authorized"])
+        XCTAssertFalse(on.buttons["home.enableNotifications"].waitForExistence(timeout: 2))
+        on.buttons["home.settings"].tap()
+        reveal(on.staticTexts["Notifications are on."], in: on)
+        XCTAssertTrue(on.staticTexts["Notifications are on."].exists)
+    }
+
+    @MainActor
+    func testSettingsCanTurnNotificationsOn() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestNotificationStatus", "notDetermined"])
+        app.buttons["home.settings"].tap()
+        reveal(app.buttons["settings.enableNotifications"], in: app)
+        app.buttons["settings.enableNotifications"].tap()
+        XCTAssertTrue(app.staticTexts["Notifications are on."].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testATappedNotificationOpensItsChoreAfterSignIn() throws {
+        // The tap arrives before anyone is signed in (a cold launch, or a session still restoring); the
+        // request is kept and honored as soon as the user is.
+        let app = launch(extraArguments: ["-UITestNotificationTapChore", recyclingChoreID])
+        XCTAssertTrue(app.buttons["signin.submit"].waitForExistence(timeout: 5), "still signed out")
+        signIn(app)
+
+        XCTAssertTrue(app.navigationBars["Take out recycling"].waitForExistence(timeout: 10), "the notification's chore opens straight after sign-in")
+        XCTAssertTrue(app.buttons["detail.status"].exists)
+
+        // Back goes to Home, not out of the app.
+        backToList(app)
+    }
+
+    @MainActor
+    func testATappedNotificationForAMissingChoreShowsNotFoundNotACrash() throws {
+        let app = launch(extraArguments: ["-UITestNotificationTapChore", "EEEEEEEE-0000-0000-0000-000000000009"])
+        signIn(app)
+        XCTAssertTrue(app.staticTexts["Chore not found"].waitForExistence(timeout: 10))
+    }
+
     // MARK: appearance
 
     @MainActor

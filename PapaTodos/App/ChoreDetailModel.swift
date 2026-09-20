@@ -52,6 +52,7 @@ final class ChoreDetailModel {
     private let choreRepository: any ChoreRepository
     private let commentRepository: any CommentRepository
     private let profileRepository: any ProfileRepository
+    private let notifier: (any NotificationDispatching)?
     private let calendarStatus: @Sendable () -> CalendarAccessStatus
     private let onChoreChanged: @MainActor (Chore) -> Void
     private let onSessionExpired: @MainActor () -> Void
@@ -66,6 +67,7 @@ final class ChoreDetailModel {
         choreRepository: any ChoreRepository,
         commentRepository: any CommentRepository,
         profileRepository: any ProfileRepository,
+        notifier: (any NotificationDispatching)? = nil,
         calendarStatus: @escaping @Sendable () -> CalendarAccessStatus = { .available },
         retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4), .seconds(8), .seconds(15)],
         onChoreChanged: @escaping @MainActor (Chore) -> Void = { _ in },
@@ -77,6 +79,7 @@ final class ChoreDetailModel {
         self.choreRepository = choreRepository
         self.commentRepository = commentRepository
         self.profileRepository = profileRepository
+        self.notifier = notifier
         self.calendarStatus = calendarStatus
         self.retryDelays = retryDelays
         self.onChoreChanged = onChoreChanged
@@ -188,6 +191,7 @@ final class ChoreDetailModel {
             let created = try await commentRepository.addComment(choreID: choreID, body: body)
             receive(.inserted(created))
             commentDraft = ""
+            notify(.commentCreated)
         } catch {
             // The draft stays so the user can retry.
             handle(error) { commentsError = $0.errorDescription }
@@ -209,6 +213,7 @@ final class ChoreDetailModel {
             updated.updatedAt = Date()
             chore = updated
             onChoreChanged(updated)
+            notify(.statusChanged)
         } catch {
             handle(error) { statusError = $0.errorDescription }
         }
@@ -246,6 +251,13 @@ final class ChoreDetailModel {
 
     func dismissCalendarMessage() {
         calendar = .idle
+    }
+
+    /// Fire and forget: the change already succeeded, so a notification problem must not affect it.
+    private func notify(_ event: PushEvent) {
+        guard let notifier else { return }
+        let id = choreID
+        Task { await notifier.notify(event, choreID: id) }
     }
 
     // MARK: errors

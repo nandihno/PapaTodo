@@ -6,6 +6,9 @@ struct SettingsView: View {
     let store: ProfileStore
     let onSignOut: () -> Void
 
+    @Environment(PushRegistrationModel.self) private var push
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @State private var avatarDraft: String?
     @State private var themeDraft: String?
 
@@ -31,6 +34,7 @@ struct SettingsView: View {
             profileSection
             avatarSection
             themeSection
+            notificationsSection
             Section {
                 Button("Sign Out", role: .destructive, action: onSignOut)
                     .accessibilityIdentifier("settings.signOut")
@@ -39,6 +43,59 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { store.discardThemePreview() }
+        .task { await push.refreshAuthorization() }
+        // The user may have changed the permission in the system Settings app.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await push.refreshAuthorization() } }
+        }
+    }
+
+    // MARK: notifications
+
+    private var notificationsSection: some View {
+        Section {
+            switch push.authorization {
+            case .notDetermined:
+                Text("Get a notification when a chore is assigned to you, changed, commented on, or completed.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await push.enableNotifications() }
+                } label: {
+                    Label("Turn On Notifications", systemImage: "bell.badge")
+                }
+                .disabled(push.isRequestingPermission)
+                .accessibilityIdentifier("settings.enableNotifications")
+            case .denied:
+                Label("Notifications are turned off for Papa Todos.", systemImage: "bell.slash")
+                    .accessibilityIdentifier("settings.notificationsStatus")
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+                .accessibilityIdentifier("settings.openSystemSettings")
+            case .authorized:
+                Label("Notifications are on.", systemImage: "bell.fill")
+                    .accessibilityIdentifier("settings.notificationsStatus")
+                switch push.registration {
+                case .notRegistered:
+                    EmptyView()
+                case .registering:
+                    ProgressView("Registering this device…")
+                case .registered:
+                    Label("This device is registered.", systemImage: "checkmark.circle.fill")
+                        .font(.footnote)
+                        .accessibilityIdentifier("settings.deviceRegistered")
+                case .failed(let message):
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                    Button("Try Again") { Task { await push.retry() } }
+                        .accessibilityIdentifier("settings.retryRegistration")
+                }
+            }
+        } header: {
+            Text("Notifications")
+        }
     }
 
     // MARK: profile

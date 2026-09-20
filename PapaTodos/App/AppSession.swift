@@ -29,6 +29,12 @@ final class AppSession {
         if case .signedIn(let record) = phase { record } else { nil }
     }
 
+    /// Runs before the session is cleared, so the caller can still make authenticated calls
+    /// (for example, unregistering this device from push notifications). Best effort: it gets a
+    /// few seconds, and sign-out proceeds regardless of how it ends.
+    var beforeSignOut: (@MainActor () async -> Void)?
+    var beforeSignOutTimeout: Duration = .seconds(3)
+
     private let authenticating: any Authenticating
     private var observation: Task<Void, Never>?
     private var isSigningOut = false
@@ -68,10 +74,29 @@ final class AppSession {
 
     func signOut() async {
         isSigningOut = true
+        if let hook = beforeSignOut {
+            await Self.runWithTimeLimit(beforeSignOutTimeout, hook)
+        }
         // Best effort: sign-out must complete locally even if the server call fails.
         try? await authenticating.signOut()
         isSigningOut = false
         phase = .signedOut(reason: nil)
+    }
+
+    /// Runs `operation`, but stops waiting for it after `limit`. The operation is not cancelled, so a
+    /// hung call can't hold up the caller.
+    private static func runWithTimeLimit(_ limit: Duration, _ operation: @escaping @MainActor () async -> Void) async {
+        let (finished, signal) = AsyncStream<Void>.makeStream()
+        Task { @MainActor in
+            await operation()
+            signal.yield()
+        }
+        Task {
+            try? await Task.sleep(for: limit)
+            signal.yield()
+        }
+        var iterator = finished.makeAsyncIterator()
+        _ = await iterator.next()
     }
 
     /// Called by data screens when a request is rejected as unauthenticated.

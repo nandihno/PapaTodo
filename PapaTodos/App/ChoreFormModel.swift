@@ -26,6 +26,7 @@ final class ChoreFormModel {
     private let saveService: ChoreSaveService
     private let deleteService: ChoreDeleteService
     private let profiles: any ProfileRepository
+    private let notifier: (any NotificationDispatching)?
     private let onSessionExpired: @MainActor () -> Void
 
     // MARK: form fields
@@ -71,6 +72,7 @@ final class ChoreFormModel {
         saveService: ChoreSaveService,
         deleteService: ChoreDeleteService,
         profiles: any ProfileRepository,
+        notifier: (any NotificationDispatching)? = nil,
         now: Date = Date(),
         onSessionExpired: @escaping @MainActor () -> Void = {}
     ) {
@@ -78,6 +80,7 @@ final class ChoreFormModel {
         self.saveService = saveService
         self.deleteService = deleteService
         self.profiles = profiles
+        self.notifier = notifier
         self.onSessionExpired = onSessionExpired
 
         let initialFields: DueDateForm.Fields
@@ -201,6 +204,11 @@ final class ChoreFormModel {
         switch await saveService.save(makeRequest(title: trimmedTitle)) {
         case .success(let success):
             notice = Self.notice(for: success.warnings)
+            // Fire and forget: a notification problem must never turn a saved chore into an error.
+            if let event = success.notification, let notifier {
+                let choreID = success.chore.id
+                Task { await notifier.notify(event, choreID: choreID) }
+            }
             didFinish = true
         case .failure(let failure):
             if failure.error == .sessionExpired {

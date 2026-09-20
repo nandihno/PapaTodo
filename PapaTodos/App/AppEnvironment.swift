@@ -10,6 +10,9 @@ struct AppEnvironment: Sendable {
     let profileRepository: any ProfileRepository
     let attachmentRepository: any AttachmentRepository
     let attachmentStorage: any AttachmentStorage
+    let deviceRegistry: any NotificationDeviceRegistering
+    let notifier: any NotificationDispatching
+    let notificationPermission: any NotificationPermissionProviding
 
     static func live(configuration: AppConfiguration) -> AppEnvironment {
         let client = SupabaseClientFactory.make(configuration: configuration)
@@ -19,7 +22,12 @@ struct AppEnvironment: Sendable {
             commentRepository: SupabaseCommentRepository(client: client),
             profileRepository: SupabaseProfileRepository(client: client),
             attachmentRepository: SupabaseAttachmentRepository(client: client),
-            attachmentStorage: SupabaseAttachmentStorage(client: client)
+            attachmentStorage: SupabaseAttachmentStorage(client: client),
+            deviceRegistry: SupabaseNotificationDeviceRegistry(
+                client: client, environment: configuration.apnsEnvironment, bundleIdentifier: configuration.bundleIdentifier
+            ),
+            notifier: SupabaseNotificationDispatcher(client: client),
+            notificationPermission: SystemNotificationPermission()
         )
     }
 
@@ -27,7 +35,8 @@ struct AppEnvironment: Sendable {
         authenticating: any Authenticating = FixtureAuthenticating(),
         failFirstChoreFetches: Int = 0,
         remoteComment: Bool = false,
-        storageRefusesDeletes: Bool = false
+        storageRefusesDeletes: Bool = false,
+        notificationStatus: NotificationAuthorization = .notDetermined
     ) -> AppEnvironment {
         let faults = FaultInjector()
         let chores = FixtureChoreRepository(failFirstFetches: failFirstChoreFetches, faults: faults)
@@ -42,7 +51,10 @@ struct AppEnvironment: Sendable {
             commentRepository: comments,
             profileRepository: FixtureProfileRepository(),
             attachmentRepository: FixtureAttachmentRepository(faults: faults, chores: chores),
-            attachmentStorage: FixtureAttachmentStorage(faults: faults, allowsDelete: !storageRefusesDeletes)
+            attachmentStorage: FixtureAttachmentStorage(faults: faults, allowsDelete: !storageRefusesDeletes),
+            deviceRegistry: FixtureNotificationDeviceRegistry(),
+            notifier: FixtureNotificationDispatcher(),
+            notificationPermission: FixtureNotificationPermission(current: notificationStatus)
         )
     }
 }

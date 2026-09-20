@@ -15,6 +15,7 @@ struct ChoreFormFactory {
             ),
             deleteService: ChoreDeleteService(chores: environment.choreRepository, storage: environment.attachmentStorage),
             profiles: environment.profileRepository,
+            notifier: environment.notifier,
             onSessionExpired: { [weak session] in session?.handleSessionExpired() }
         )
     }

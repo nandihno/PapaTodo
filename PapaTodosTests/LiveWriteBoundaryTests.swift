@@ -298,4 +298,73 @@ extension SupabaseServiceBoundaryTests {
         #expect(RealtimeCommentMapper.deleted(oldRecord: [:]) == nil)
         #expect(RealtimeCommentMapper.deleted(oldRecord: try record(#"{"id":"nope"}"#)) == nil)
     }
+
+    // MARK: push notifications (Phase 5)
+
+    @Test func registeringADeviceCallsTheDatabaseFunctionWithTheEnvironmentAndBundle() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: "{}")
+        let registry = SupabaseNotificationDeviceRegistry(
+            client: try makeSignedInClient(), environment: .sandbox, bundleIdentifier: "org.nando.PapaTodos"
+        )
+
+        try await registry.register(deviceToken: "0a1b2c3d")
+
+        let request = try #require(StubURLProtocol.recorded.first { $0.method == "POST" })
+        #expect(request.url.path == "/rest/v1/rpc/register_notification_device")
+        let body = try #require(request.bodyJSON)
+        #expect(body["p_device_token"] as? String == "0a1b2c3d")
+        #expect(body["p_apns_environment"] as? String == "sandbox")
+        #expect(body["p_app_bundle_id"] as? String == "org.nando.PapaTodos")
+        #expect(body.keys.count == 3, "no user id is sent: the database function uses the caller's identity")
+    }
+
+    @Test func unregisteringUsesTheSameShapeAndTheProductionEnvironment() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: "true")
+        let registry = SupabaseNotificationDeviceRegistry(
+            client: try makeSignedInClient(), environment: .production, bundleIdentifier: "org.nando.PapaTodos"
+        )
+
+        try await registry.unregister(deviceToken: "ff00")
+
+        let request = try #require(StubURLProtocol.recorded.first { $0.method == "POST" })
+        #expect(request.url.path == "/rest/v1/rpc/unregister_notification_device")
+        #expect(request.bodyJSON?["p_apns_environment"] as? String == "production")
+    }
+
+    @Test func anAuthenticationFailureRegisteringMapsToSessionExpired() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 401, body: #"{"code":"PGRST301","message":"JWT expired"}"#)
+        let registry = SupabaseNotificationDeviceRegistry(
+            client: try makeSignedInClient(), environment: .sandbox, bundleIdentifier: "org.nando.PapaTodos"
+        )
+        await #expect(throws: DataServiceError.sessionExpired) {
+            try await registry.register(deviceToken: "0a1b2c3d")
+        }
+    }
+
+    @Test func theDispatcherPostsTheSameEventAndChoreTheWebSends() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: #"{"sent":1}"#)
+        let id = UUID()
+
+        await SupabaseNotificationDispatcher(client: try makeSignedInClient()).notify(.statusChanged, choreID: id)
+
+        let request = try #require(StubURLProtocol.recorded.first { $0.method == "POST" })
+        #expect(request.url.path == "/functions/v1/send-push")
+        let body = try #require(request.bodyJSON)
+        #expect(body["eventType"] as? String == "status-changed")
+        #expect(body["choreId"] as? String == id.uuidString.lowercased())
+        #expect(body.keys.sorted() == ["choreId", "eventType"], "recipients are decided by the server, never sent from here")
+    }
+
+    @Test func aFailingSendPushNeverThrows() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 500, body: #"{"error":"boom"}"#)
+        // notify() is non-throwing by design; simply returning proves the failure was contained.
+        await SupabaseNotificationDispatcher(client: try makeSignedInClient()).notify(.commentCreated, choreID: UUID())
+        StubURLProtocol.fail(with: URLError(.notConnectedToInternet))
+        await SupabaseNotificationDispatcher(client: try makeSignedInClient()).notify(.choreUpdated, choreID: UUID())
+    }
 }

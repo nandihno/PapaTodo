@@ -9,6 +9,7 @@ struct HomeView: View {
     let formFactory: ChoreFormFactory
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(PushRegistrationModel.self) private var push
     @State private var presentedForm: FormRoute?
 
     private enum FormRoute: Identifiable {
@@ -82,6 +83,23 @@ struct HomeView: View {
             Section { tabPicker }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+
+            if push.shouldShowHomePrompt {
+                Section {
+                    Label("Get notified about your chores", systemImage: "bell.badge")
+                        .font(.headline)
+                        // On the heading, not the Section: a container's identifier hides its children's.
+                        .accessibilityIdentifier("home.notificationPrompt")
+                    Text("We'll let you know when a chore is assigned to you, changed, commented on, or completed.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("Turn On Notifications") { Task { await push.enableNotifications() } }
+                        .disabled(push.isRequestingPermission)
+                        .accessibilityIdentifier("home.enableNotifications")
+                    Button("Not Now") { push.dismissPrompt() }
+                        .accessibilityIdentifier("home.dismissNotificationPrompt")
+                }
+            }
 
             if let notice = home.notice {
                 Section {
