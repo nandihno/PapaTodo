@@ -46,6 +46,7 @@ private struct ZoomablePhoto: View {
 
     @State private var scale: CGFloat = 1
     @State private var baseScale: CGFloat = 1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         AsyncImage(url: url) { phase in
@@ -61,7 +62,8 @@ private struct ZoomablePhoto: View {
                             .onEnded { _ in baseScale = scale }
                     )
                     .onTapGesture(count: 2) {
-                        withAnimation { scale = 1; baseScale = 1 }
+                        // Reduce Motion: reset without the zoom animation.
+                        withAnimation(reduceMotion ? nil : .default) { scale = 1; baseScale = 1 }
                     }
             case .failure:
                 VStack(spacing: 8) {
