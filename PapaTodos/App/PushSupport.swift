@@ -48,7 +48,7 @@ final class PushBridge {
 }
 
 /// Receives the system's remote-notification callbacks and notification taps.
-final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
@@ -64,19 +64,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         PushBridge.shared.registrationFailed()
     }
 
+    // These two run on the main actor on purpose. When the async form finishes, the system calls UIKit
+    // (snapshot and state restoration), which asserts it is on the main thread: a nonisolated version
+    // finished on a background thread and crashed the app when a notification was tapped.
+
     /// Show notifications that arrive while the app is open (specification.md section 10.3).
-    nonisolated func userNotificationCenter(
+    func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        await MainActor.run { PushBridge.shared.foregroundNotification() }
+        PushBridge.shared.foregroundNotification()
         return [.banner, .list, .sound]
     }
 
     /// The user tapped a notification: open the chore it is about.
-    nonisolated func userNotificationCenter(
+    func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
         guard let id = PushPayload.choreID(from: response.notification.request.content.userInfo) else { return }
-        await MainActor.run { PushBridge.shared.openChore(id) }
+        PushBridge.shared.openChore(id)
     }
 }
