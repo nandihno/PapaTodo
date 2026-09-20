@@ -42,6 +42,10 @@ Phase scope: specification.md section 14, "Phase 4 - Detail, status, comments, R
 4. **Calendar:** on a chore with a date only, tap Save to Calendar, pick a calendar, save, and check the event in the Calendar app (all-day, alerts day before and on the day). Repeat with a chore that has a time (30 minutes, alerts 2 hours and 30 minutes before). Also try cancelling.
 5. **Google Calendar:** tap it and confirm the browser opens with the title, date and notes filled in.
 
+## Bug found after Phase 4 review, and fixed (2026-09-20)
+
+While reviewing Phase 4 the user deleted a chore from the detail screen and saw no "photo file is still in storage" note, and understandably concluded the image had been removed. A read-only check showed the bucket still held every file (38, with 37 now unreferenced), so the file was **not** removed. Cause: the detail screen's delete path discarded the caveat that Home's form path shows. Fixed by passing the note back to Home; covered by the regression test `testDeletingFromTheDetailScreenTellsYouWhenPhotoFilesCouldNotBeRemoved` (fixture bucket that refuses deletes, launch argument `-UITestStorageRefusesDeletes`). The same fix covers the note after a save that removes a photo.
+
 ## Known limitations and follow-up
 
 - Notification dispatch after a status change or a comment belongs to Phase 5, so other family members are not pushed when you change status or comment from the phone.

@@ -67,8 +67,10 @@ struct MainView: View {
             onChoreChanged: { [home] updated in home.upsert(updated) },
             onSessionExpired: { [weak session] in session?.handleSessionExpired() }
         )
-        return ChoreDetailView(model: model, formFactory: formFactory) { [home] deleted in
+        return ChoreDetailView(model: model, formFactory: formFactory) { [home] notice, deleted in
             if deleted { home.remove(id: id) }
+            // Show what the save or delete could not finish, as the Home form does.
+            home.showNotice(notice)
             Task { await home.refresh() }
         }
     }

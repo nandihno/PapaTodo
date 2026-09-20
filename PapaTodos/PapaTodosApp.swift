@@ -48,7 +48,8 @@ struct PapaTodosApp: App {
         if arguments.contains("-UITestFixtures") {
             return (.fixture(
                 failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0,
-                remoteComment: arguments.contains("-UITestRemoteComment")
+                remoteComment: arguments.contains("-UITestRemoteComment"),
+                storageRefusesDeletes: arguments.contains("-UITestStorageRefusesDeletes")
             ), nil)
         }
         do {

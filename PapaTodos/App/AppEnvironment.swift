@@ -26,7 +26,8 @@ struct AppEnvironment: Sendable {
     static func fixture(
         authenticating: any Authenticating = FixtureAuthenticating(),
         failFirstChoreFetches: Int = 0,
-        remoteComment: Bool = false
+        remoteComment: Bool = false,
+        storageRefusesDeletes: Bool = false
     ) -> AppEnvironment {
         let faults = FaultInjector()
         let chores = FixtureChoreRepository(failFirstFetches: failFirstChoreFetches, faults: faults)
@@ -41,7 +42,7 @@ struct AppEnvironment: Sendable {
             commentRepository: comments,
             profileRepository: FixtureProfileRepository(),
             attachmentRepository: FixtureAttachmentRepository(faults: faults, chores: chores),
-            attachmentStorage: FixtureAttachmentStorage(faults: faults)
+            attachmentStorage: FixtureAttachmentStorage(faults: faults, allowsDelete: !storageRefusesDeletes)
         )
     }
 }

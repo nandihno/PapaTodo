@@ -304,6 +304,25 @@ final class PapaTodosUITests: XCTestCase {
     }
 
     @MainActor
+    func testDeletingFromTheDetailScreenTellsYouWhenPhotoFilesCouldNotBeRemoved() throws {
+        // Regression: deleting via the detail screen once dropped the "file still in storage" note.
+        let app = launchSignedIn(extraArguments: ["-UITestStorageRefusesDeletes"])
+        openEditor(app, containing: "Take out recycling")   // has photos
+        reveal(app.buttons["form.delete"], in: app)
+        app.buttons["form.delete"].tap()
+        let labelled = app.buttons.matching(NSPredicate(format: "label == 'Delete Chore'"))
+        let dialogConfirm = app.buttons.matching(identifier: "form.confirmDelete").firstMatch
+        XCTAssertTrue(dialogConfirm.waitForExistence(timeout: 3) || labelled.count >= 2)
+        (dialogConfirm.exists ? dialogConfirm : labelled.element(boundBy: labelled.count - 1)).tap()
+
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5), "back on the list")
+        let notice = app.staticTexts["home.notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "the caveat must be shown, not dropped")
+        XCTAssertTrue(notice.label.contains("still in storage"))
+        XCTAssertFalse(card(app, containing: "Take out recycling").exists)
+    }
+
+    @MainActor
     func testLeavingAnEditedFormAsksBeforeDiscarding() throws {
         let app = launchSignedIn()
         openNewChoreForm(app)

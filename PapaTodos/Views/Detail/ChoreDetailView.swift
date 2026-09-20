@@ -5,8 +5,9 @@ import SwiftUI
 struct ChoreDetailView: View {
     @State private var model: ChoreDetailModel
     let formFactory: ChoreFormFactory
-    /// Called after an edit or delete so the list can refresh.
-    let onChanged: (_ deleted: Bool) -> Void
+    /// Called after an edit or delete so the list can refresh and show any caveat (for example,
+    /// photo files that could not be removed from storage).
+    let onChanged: (_ notice: String?, _ deleted: Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -19,7 +20,7 @@ struct ChoreDetailView: View {
         var id: Int { index }
     }
 
-    init(model: ChoreDetailModel, formFactory: ChoreFormFactory, onChanged: @escaping (Bool) -> Void) {
+    init(model: ChoreDetailModel, formFactory: ChoreFormFactory, onChanged: @escaping (String?, Bool) -> Void) {
         _model = State(initialValue: model)
         self.formFactory = formFactory
         self.onChanged = onChanged
@@ -352,8 +353,8 @@ struct ChoreDetailView: View {
         if let chore = model.chore {
             ChoreFormView(
                 model: formFactory.makeModel(mode: .edit(chore)), storedDescription: chore.description
-            ) { _, deleted in
-                onChanged(deleted)
+            ) { notice, deleted in
+                onChanged(notice, deleted)
                 if deleted {
                     dismiss()
                 } else {
