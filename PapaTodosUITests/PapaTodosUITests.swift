@@ -25,6 +25,18 @@ final class PapaTodosUITests: XCTestCase {
         password.tap()
         password.typeText("correct-horse")
         app.buttons["signin.submit"].tap()
+        dismissSavePasswordSheetIfShown(app)
+    }
+
+    /// After a sign-in the system may offer "Save Password?" over the app, and it swallows the next taps.
+    /// Whether it appears depends on the simulator's Passwords settings, so the helper is tolerant.
+    @MainActor
+    private func dismissSavePasswordSheetIfShown(_ app: XCUIApplication) {
+        let sheet = app.sheets.containing(.staticText, identifier: "Save Password?").firstMatch
+        guard sheet.waitForExistence(timeout: 3) else { return }
+        // Scoped to the sheet: the app's own notification prompt also has a "Not Now" button.
+        sheet.buttons["Not Now"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "the Save Password sheet should be dismissed")
     }
 
     @MainActor
@@ -76,6 +88,7 @@ final class PapaTodosUITests: XCTestCase {
         submit.tap()
         XCTAssertTrue(app.otherElements["home.list"].waitForExistence(timeout: 5)
                       || app.collectionViews["home.list"].waitForExistence(timeout: 2))
+        dismissSavePasswordSheetIfShown(app)
 
         app.buttons["home.settings"].tap()
         reveal(app.buttons["settings.signOut"], in: app)
