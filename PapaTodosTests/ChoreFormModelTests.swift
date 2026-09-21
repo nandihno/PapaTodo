@@ -29,6 +29,7 @@ struct ChoreFormModelTests {
             saveService: ChoreSaveService(chores: world.chores, attachments: world.rows, storage: world.storage),
             deleteService: ChoreDeleteService(chores: world.chores, storage: world.storage),
             profiles: FixtureProfileRepository(),
+            currentUserID: FixtureData.currentUserID,
             now: Date(timeIntervalSince1970: 1_790_000_000),
             onSessionExpired: onExpired
         )
@@ -373,5 +374,41 @@ struct ChoreFormModelTests {
         let model = makeModel(makeWorld(), mode: .create)
         await model.loadPeople()
         #expect(model.people.count == 2)
+    }
+
+    // MARK: creator-only delete
+
+    @Test func onlyTheCreatorCanDeleteAChore() async {
+        let world = makeWorld()
+        let mine = chore()                                   // created by the current user
+        var theirs = chore()
+        theirs.createdBy = FixtureData.otherUserID           // assigned to me, created by someone else
+        theirs.assignedTo = FixtureData.currentUserID
+        #expect(makeModel(world, mode: .edit(mine)).canDelete)
+        #expect(!makeModel(world, mode: .edit(theirs)).canDelete)
+        #expect(!makeModel(world, mode: .create).canDelete)
+    }
+
+    @Test func deletingSomeoneElsesChoreIsRefusedWithoutTouchingIt() async {
+        let world = makeWorld()
+        var theirs = chore()
+        theirs.createdBy = FixtureData.otherUserID
+        theirs.assignedTo = FixtureData.currentUserID
+        await world.chores.store(theirs)
+        let model = makeModel(world, mode: .edit(theirs))
+
+        await model.delete()
+
+        #expect(model.errorMessage == "Only the person who created this chore can delete it.")
+        #expect(!model.wasDeleted)
+        #expect(await world.chores.allChores.contains { $0.id == theirs.id })
+    }
+
+    @Test func theRepositoryRefusesToDeleteSomeoneElsesChore() async {
+        var theirs = chore()
+        theirs.createdBy = FixtureData.otherUserID
+        let repository = FixtureChoreRepository(chores: [theirs])
+        await #expect(throws: DataServiceError.notCreator) { try await repository.delete(id: theirs.id) }
+        #expect(await repository.allChores.count == 1)
     }
 }

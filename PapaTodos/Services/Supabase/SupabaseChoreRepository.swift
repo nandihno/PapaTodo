@@ -109,17 +109,25 @@ nonisolated struct SupabaseChoreRepository: ChoreRepository {
 
     /// Deletes the chore row; its comments and attachment rows are removed by the foreign
     /// keys' `ON DELETE CASCADE`. Deleting an already-missing chore is not an error.
+    ///
+    /// Only the creator may delete a chore. When row-level security refuses, PostgREST reports success
+    /// with zero rows rather than an error, so an empty result is checked against whether the chore is
+    /// still there: still there means the delete was refused.
     func delete(id: UUID) async throws {
         do {
-            _ = try await client.from("chores")
+            let deleted: [DeletedRow] = try await client.from("chores")
                 .delete()
                 .eq("id", value: id)
                 .select("id")
                 .execute()
+                .value
+            if deleted.isEmpty, try await fetchChore(id: id) != nil { throw DataServiceError.notCreator }
         } catch {
             throw SupabaseErrorMapper.map(error)
         }
     }
+
+    private struct DeletedRow: Decodable { let id: UUID }
 
     // MARK: JSON helpers
 

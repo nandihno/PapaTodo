@@ -15,6 +15,8 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
     /// Row-level security refused the write (for example, photos on a chore the user
     /// neither created nor is assigned to).
     case notPermitted
+    /// Only the person who created a chore may delete it.
+    case notCreator
     /// The operation exists on the protocol but is intentionally not wired up in
     /// the current phase (for example, chore writes before Phase 3).
     case notAvailableYet
@@ -31,6 +33,8 @@ nonisolated enum DataServiceError: Error, Equatable, LocalizedError {
             nil
         case .notPermitted:
             "You don't have permission to do that. Photos can only be added or removed on chores you created or are assigned to."
+        case .notCreator:
+            "Only the person who created this chore can delete it."
         case .server:
             "Something went wrong talking to the server. Please try again."
         case .notAvailableYet:

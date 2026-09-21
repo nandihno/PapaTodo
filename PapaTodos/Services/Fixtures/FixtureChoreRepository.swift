@@ -76,7 +76,10 @@ actor FixtureChoreRepository: ChoreRepository {
 
     func delete(id: UUID) async throws {
         try await faults.check(.deleteChore)
-        guard chores.removeValue(forKey: id) != nil else { throw RepositoryError.notFound }
+        guard let chore = chores[id] else { throw RepositoryError.notFound }
+        // Mirrors the live rule: only the creator may delete a chore.
+        guard chore.createdBy == currentUserID else { throw DataServiceError.notCreator }
+        chores[id] = nil
     }
 
     var allChores: [Chore] { Array(chores.values) }

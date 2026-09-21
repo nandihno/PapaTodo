@@ -40,7 +40,7 @@ struct ChoreFormView: View {
                 dueSection
                 PhotosSectionView(model: model)
 
-                if model.isEditing {
+                if model.canDelete {
                     Section {
                         Button("Delete Chore", role: .destructive) { isConfirmingDelete = true }
                             .disabled(model.isBusy)

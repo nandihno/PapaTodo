@@ -42,7 +42,7 @@ struct NotificationDispatchTests {
             mode: mode,
             saveService: ChoreSaveService(chores: chores, attachments: rows, storage: storage),
             deleteService: ChoreDeleteService(chores: chores, storage: storage),
-            profiles: FixtureProfileRepository(), notifier: notifier
+            profiles: FixtureProfileRepository(), currentUserID: FixtureData.currentUserID, notifier: notifier
         )
     }
 
@@ -110,7 +110,7 @@ struct NotificationDispatchTests {
                 storage: FixtureAttachmentStorage(faults: faults)
             ),
             deleteService: ChoreDeleteService(chores: chores, storage: FixtureAttachmentStorage(faults: faults)),
-            profiles: FixtureProfileRepository(), notifier: notifier
+            profiles: FixtureProfileRepository(), currentUserID: FixtureData.currentUserID, notifier: notifier
         )
         model.title = "Will fail"
         model.assignedTo = other

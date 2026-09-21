@@ -139,6 +139,29 @@ extension SupabaseServiceBoundaryTests {
         }
     }
 
+    @Test func aDeleteRefusedByRowLevelSecurityIsReportedNotSilentlySwallowed() async {
+        StubURLProtocol.reset()
+        // The DELETE "succeeds" with no rows, and the chore is still there when looked up afterwards.
+        StubURLProtocol.respondInOrder([(200, "[]"), (200, choreJSON)])
+        await #expect(throws: DataServiceError.notCreator) {
+            try await SupabaseChoreRepository(client: makeClient()).delete(id: UUID())
+        }
+        #expect(StubURLProtocol.recorded.map(\.method) == ["DELETE", "GET"])
+    }
+
+    @Test func deletingAChoreThatIsAlreadyGoneIsNotAnError() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respondInOrder([(200, "[]"), (200, "[]")])
+        try await SupabaseChoreRepository(client: makeClient()).delete(id: UUID())
+    }
+
+    @Test func aSuccessfulDeleteDoesNotLookTheChoreUpAgain() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.respond(status: 200, body: #"[{"id":"11111111-1111-1111-1111-111111111111"}]"#)
+        try await SupabaseChoreRepository(client: makeClient()).delete(id: UUID())
+        #expect(StubURLProtocol.recorded.map(\.method) == ["DELETE"])
+    }
+
     @Test func cancelledRequestsAreNotReportedAsServerErrors() async {
         StubURLProtocol.reset()
         StubURLProtocol.fail(with: URLError(.cancelled))

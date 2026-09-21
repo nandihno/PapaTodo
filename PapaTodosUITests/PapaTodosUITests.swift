@@ -317,10 +317,30 @@ final class PapaTodosUITests: XCTestCase {
     }
 
     @MainActor
+    func testOnlyTheCreatorSeesDeleteChore() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        // "Take out recycling" is assigned to the signed-in user but was created by someone else.
+        openEditor(app, containing: "Take out recycling")
+        XCTAssertTrue(app.buttons["form.save"].exists, "the assignee can still edit the chore")
+        reveal(app.textFields["form.title"], in: app)
+        XCTAssertFalse(app.buttons["form.delete"].exists, "only the creator can delete a chore")
+        app.buttons["form.cancel"].tap()
+        backToList(app)
+
+        // "Water the garden" was created by the signed-in user.
+        openEditor(app, containing: "Water the garden")
+        reveal(app.buttons["form.delete"], in: app)
+        XCTAssertTrue(app.buttons["form.delete"].exists)
+    }
+
+    @MainActor
     func testDeletingFromTheDetailScreenTellsYouWhenPhotoFilesCouldNotBeRemoved() throws {
         // Regression: deleting via the detail screen once dropped the "file still in storage" note.
         let app = launchSignedIn(extraArguments: ["-UITestStorageRefusesDeletes"])
-        openEditor(app, containing: "Take out recycling")   // has photos
+        openEditor(app, containing: "Water the garden")   // created by the current user, has a photo
         reveal(app.buttons["form.delete"], in: app)
         app.buttons["form.delete"].tap()
         let labelled = app.buttons.matching(NSPredicate(format: "label == 'Delete Chore'"))
@@ -332,7 +352,7 @@ final class PapaTodosUITests: XCTestCase {
         let notice = app.staticTexts["home.notice"]
         XCTAssertTrue(notice.waitForExistence(timeout: 5), "the caveat must be shown, not dropped")
         XCTAssertTrue(notice.label.contains("still in storage"))
-        XCTAssertFalse(card(app, containing: "Take out recycling").exists)
+        XCTAssertFalse(card(app, containing: "Water the garden").exists)
     }
 
     @MainActor

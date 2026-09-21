@@ -23,6 +23,7 @@ final class ChoreFormModel {
 
     let mode: Mode
     private let original: Chore?
+    private let currentUserID: UUID?
     private let saveService: ChoreSaveService
     private let deleteService: ChoreDeleteService
     private let profiles: any ProfileRepository
@@ -72,6 +73,7 @@ final class ChoreFormModel {
         saveService: ChoreSaveService,
         deleteService: ChoreDeleteService,
         profiles: any ProfileRepository,
+        currentUserID: UUID?,
         notifier: (any NotificationDispatching)? = nil,
         now: Date = Date(),
         onSessionExpired: @escaping @MainActor () -> Void = {}
@@ -80,6 +82,7 @@ final class ChoreFormModel {
         self.saveService = saveService
         self.deleteService = deleteService
         self.profiles = profiles
+        self.currentUserID = currentUserID
         self.notifier = notifier
         self.onSessionExpired = onSessionExpired
 
@@ -112,6 +115,12 @@ final class ChoreFormModel {
     }
 
     var isEditing: Bool { original != nil }
+
+    /// Only the person who created a chore may delete it (the database enforces this too).
+    var canDelete: Bool {
+        guard let original, let currentUserID else { return false }
+        return original.createdBy == currentUserID
+    }
     var isBusy: Bool { phase != .editing }
 
     /// Whether leaving now would lose something.
@@ -252,6 +261,10 @@ final class ChoreFormModel {
 
     func delete() async {
         guard let original, phase == .editing else { return }
+        guard canDelete else {
+            errorMessage = DataServiceError.notCreator.errorDescription
+            return
+        }
         errorMessage = nil
         phase = .deleting
         switch await deleteService.delete(original) {
