@@ -9,6 +9,8 @@ import Observation
 /// - A description the editor can't represent (lists, tables, emphasis...) stays exactly as
 ///   stored unless the user explicitly chooses to edit it as simplified text.
 /// - Only one save or delete runs at a time, and the draft survives any failure.
+/// - A favourite applied to a new chore copies its description exactly as stored, including
+///   structure the editor can't hold.
 @Observable
 @MainActor
 final class ChoreFormModel {
@@ -37,6 +39,9 @@ final class ChoreFormModel {
     var descriptionText = AttributedString()
     /// The stored description has structure the editor can't hold; it is shown read-only.
     private(set) var isDescriptionProtected = false
+    /// The stored description being protected (from the chore being edited or an applied
+    /// favourite), shown read-only and saved unchanged.
+    private(set) var protectedDescription: String?
     var assignedTo: UUID?
     var status: ChoreStatus = .pending
     var due: DueDateForm.Fields
@@ -61,10 +66,10 @@ final class ChoreFormModel {
 
     // MARK: baselines for change detection
 
-    private let initialTitle: String
-    private let initialDescription: AttributedString
+    private var initialTitle: String
+    private var initialDescription: AttributedString
     private let initialDue: DueDateForm.Fields
-    private let initialAssignedTo: UUID?
+    private var initialAssignedTo: UUID?
     private let initialStatus: ChoreStatus
     private var descriptionWasSimplified = false
 
@@ -101,6 +106,7 @@ final class ChoreFormModel {
             let loaded = DescriptionEditing.load(chore.description)
             descriptionText = loaded.text
             isDescriptionProtected = loaded.isProtected
+            protectedDescription = loaded.isProtected ? chore.description : nil
             assignedTo = chore.assignedTo
             status = chore.status
             initialFields = DueDateForm.fields(for: chore.dueDate, now: now)
@@ -149,10 +155,83 @@ final class ChoreFormModel {
     /// The explicit choice to edit a protected description: it becomes plain text with
     /// links, and lists, tables and emphasis are flattened.
     func beginEditingProtectedDescription() {
-        guard isDescriptionProtected, let original else { return }
-        descriptionText = DescriptionEditing.simplifiedText(from: original.description)
+        guard isDescriptionProtected else { return }
+        descriptionText = DescriptionEditing.simplifiedText(from: protectedDescription)
         isDescriptionProtected = false
+        protectedDescription = nil
         descriptionWasSimplified = true
+    }
+
+    // MARK: favourites
+
+    /// The favourite the new chore was started from, highlighted in the form. Picking another
+    /// swaps it; picking this one again clears it.
+    private(set) var appliedFavouriteID: UUID?
+    /// Title, description and assignee as the applied favourite left them, to tell whether the
+    /// user has changed them since.
+    private var appliedSnapshot: FavouriteFields?
+
+    private struct FavouriteFields: Equatable {
+        var title: String
+        var description: AttributedString
+        var protectedDescription: String?
+        var assignedTo: UUID?
+    }
+
+    private var favouriteFields: FavouriteFields {
+        FavouriteFields(
+            title: title, description: descriptionText,
+            protectedDescription: isDescriptionProtected ? protectedDescription : nil, assignedTo: assignedTo
+        )
+    }
+
+    /// Whether switching to (or clearing) a favourite would throw away something the user wrote.
+    /// - With a favourite applied: only if its title, description or assignee were changed since.
+    /// - With none: if a description or assignee was entered. Replacing a typed title is the
+    ///   point of picking one, so a title alone doesn't count.
+    /// Due date, status and photos are never replaced, so they never count.
+    var favouriteChangeNeedsConfirmation: Bool {
+        if let appliedSnapshot { return favouriteFields != appliedSnapshot }
+        return isDescriptionProtected
+            || !String(descriptionText.characters).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || assignedTo != nil
+    }
+
+    /// Fills a new chore's title, description and assignee from a favourite, replacing any
+    /// favourite applied before. With `asBaseline` (the form was opened from a favourite) the
+    /// filled-in values count as the starting point, so cancelling straight away doesn't ask
+    /// about discarding.
+    func apply(_ template: ChoreTemplate, asBaseline: Bool = false) {
+        guard original == nil, phase == .editing else { return }
+        title = template.title
+        titleError = nil
+        let loaded = DescriptionEditing.load(template.description)
+        descriptionText = loaded.text
+        isDescriptionProtected = loaded.isProtected
+        protectedDescription = loaded.isProtected ? template.description : nil
+        descriptionWasSimplified = false
+        assignedTo = template.assignedTo
+        appliedFavouriteID = template.id
+        appliedSnapshot = favouriteFields
+        if asBaseline {
+            initialTitle = title
+            initialDescription = descriptionText
+            initialAssignedTo = assignedTo
+        }
+    }
+
+    /// Un-picks the applied favourite: title, description and assignee go back to blank.
+    /// Due date, status and photos are kept.
+    func clearFavourite() {
+        guard original == nil, phase == .editing, appliedFavouriteID != nil else { return }
+        title = ""
+        descriptionText = AttributedString()
+        isDescriptionProtected = false
+        protectedDescription = nil
+        descriptionWasSimplified = false
+        assignedTo = nil
+        appliedFavouriteID = nil
+        appliedSnapshot = nil
     }
 
     // MARK: photos
@@ -238,7 +317,8 @@ final class ChoreFormModel {
         guard let original else {
             return .init(
                 kind: .create(ChoreDraft(
-                    title: title, description: DescriptionEditing.storageValue(for: descriptionText),
+                    title: title,
+                    description: isDescriptionProtected ? protectedDescription : DescriptionEditing.storageValue(for: descriptionText),
                     assignedTo: assignedTo, status: status, dueDate: dueDate
                 )),
                 newPhotos: pendingPhotos

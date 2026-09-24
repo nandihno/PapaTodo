@@ -7,6 +7,7 @@ struct SettingsView: View {
     let onSignOut: () -> Void
 
     @Environment(PushRegistrationModel.self) private var push
+    @Environment(FavouritesStore.self) private var favourites
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var avatarDraft: String?
@@ -34,6 +35,7 @@ struct SettingsView: View {
             profileSection
             avatarSection
             themeSection
+            favouritesSection
             notificationsSection
             Section {
                 Button("Sign Out", role: .destructive, action: onSignOut)
@@ -47,6 +49,23 @@ struct SettingsView: View {
         // The user may have changed the permission in the system Settings app.
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await push.refreshAuthorization() } }
+        }
+    }
+
+    // MARK: favourites
+
+    private var favouritesSection: some View {
+        Section {
+            NavigationLink(value: MainRoute.favourites) {
+                LabeledContent {
+                    if !favourites.templates.isEmpty { Text("\(favourites.templates.count)") }
+                } label: {
+                    Label("Favourite Chores", systemImage: "star")
+                }
+            }
+            .accessibilityIdentifier("settings.favourites")
+        } footer: {
+            Text("Chores you make often, shared with the family. Pick one when you add a chore instead of typing it again.")
         }
     }
 

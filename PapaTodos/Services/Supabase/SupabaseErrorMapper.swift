@@ -23,8 +23,13 @@ nonisolated enum SupabaseErrorMapper {
         }
         if let postgrestError = error as? PostgrestError {
             if isJWTProblem(code: postgrestError.code, message: postgrestError.message) { return .sessionExpired }
-            // 42501 = insufficient_privilege: row-level security refused the write.
-            return postgrestError.code == "42501" ? .notPermitted : .server
+            switch postgrestError.code {
+            // insufficient_privilege: row-level security refused the write.
+            case "42501": return .notPermitted
+            // unique_violation.
+            case "23505": return .duplicate
+            default: return .server
+            }
         }
         if let storageError = error as? StorageError {
             switch storageError.statusCode {

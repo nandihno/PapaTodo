@@ -83,6 +83,7 @@ struct PapaTodosApp: App {
                 failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0,
                 remoteComment: arguments.contains("-UITestRemoteComment"),
                 storageRefusesDeletes: arguments.contains("-UITestStorageRefusesDeletes"),
+                noFavourites: arguments.contains("-UITestNoFavourites"),
                 notificationStatus: notificationStatus(from: arguments)
             ), nil)
         }

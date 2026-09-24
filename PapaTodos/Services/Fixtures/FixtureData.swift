@@ -84,4 +84,21 @@ nonisolated enum FixtureData {
                          body: "On it.", createdAt: now.addingTimeInterval(-3_600)),
         ]
     }
+
+    static let woolworthsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000001")!
+    static let binsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000002")!
+
+    /// Two shared favourites: a shopping run whose list only the web can author (so it is
+    /// protected in the editor), and a plain one with a default assignee.
+    static let templates: [ChoreTemplate] = [
+        ChoreTemplate(
+            id: woolworthsTemplateID, title: "Woolworths run",
+            description: "<p>Check the list:</p><ul><li>Milk</li><li>Bread</li></ul>",
+            assignedTo: nil, sortOrder: 0, createdBy: currentUserID
+        ),
+        ChoreTemplate(
+            id: binsTemplateID, title: "Put the bins out", description: "Yellow lid on alternate weeks.",
+            assignedTo: otherUserID, sortOrder: 1, createdBy: otherUserID
+        ),
+    ]
 }

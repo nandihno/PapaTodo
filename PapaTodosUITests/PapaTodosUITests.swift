@@ -807,6 +807,207 @@ final class PapaTodosUITests: XCTestCase {
         reveal(app.buttons["settings.signOut"], in: app)
     }
 
+    // MARK: favourites
+
+    @MainActor
+    private func openFavourites(_ app: XCUIApplication) {
+        app.buttons["home.settings"].tap()
+        let link = app.buttons["settings.favourites"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        reveal(link, in: app)
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Favourite Chores"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func favouriteRows(_ app: XCUIApplication) -> XCUIElementQuery {
+        app.buttons.matching(identifier: "favourites.row")
+    }
+
+    @MainActor
+    private func waitForCount(_ query: XCUIElementQuery, _ count: Int, file: StaticString = #filePath, line: UInt = #line) {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == %d", count), object: query)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 5), .completed,
+                       "Expected \(count), found \(query.count)", file: file, line: line)
+    }
+
+    @MainActor
+    func testAFavouriteChipFillsTheNewChoreFormAndSaves() throws {
+        let app = launchSignedIn()
+        app.segmentedControls["home.tabs"].buttons["All"].tap()
+        waitForCards(app, count: 4)
+
+        openNewChoreForm(app)
+        let chip = app.buttons["Favourite Put the bins out"].firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5), "favourites show as chips on a blank new chore")
+        attachScreenshot(app, named: "form-favourite-chips")
+        chip.tap()
+
+        XCTAssertEqual(app.textFields["form.title"].value as? String, "Put the bins out")
+        XCTAssertTrue(chip.isSelected, "the favourite in use is highlighted")
+
+        // Switch to the other favourite: nothing was changed, so no question.
+        app.buttons["Favourite Woolworths run"].firstMatch.tap()
+        XCTAssertEqual(app.textFields["form.title"].value as? String, "Woolworths run")
+        XCTAssertFalse(app.buttons["form.confirmFavourite"].exists)
+        attachScreenshot(app, named: "form-favourite-selected")
+
+        // And back.
+        chip.tap()
+        XCTAssertEqual(app.textFields["form.title"].value as? String, "Put the bins out")
+        XCTAssertTrue(app.buttons["form.assignee"].label.contains("Alex Sample") || app.staticTexts["Alex Sample"].exists)
+        app.buttons["form.save"].tap()
+
+        waitForCards(app, count: 5)
+        XCTAssertTrue(card(app, containing: "Put the bins out").exists)
+    }
+
+    @MainActor
+    func testTypingSuggestsAFavourite() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+        let title = app.textFields["form.title"]
+        title.tap()
+        title.typeText("wool")
+        let suggestion = app.buttons["Use favourite Woolworths run"].firstMatch
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        suggestion.tap()
+
+        XCTAssertEqual(title.value as? String, "Woolworths run")
+        // The favourite's list can't be edited here, so it is shown protected and saved as is.
+        XCTAssertTrue(app.descendants(matching: .any)["form.protectedDescription"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testPickingAFavouriteAsksBeforeReplacingADescription() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+        let editor = app.textViews["form.description"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        editor.typeText("Bring bags")
+
+        app.buttons["Favourite Put the bins out"].firstMatch.tap()
+        let confirm = app.buttons["form.confirmFavourite"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "a description already typed must not be replaced silently")
+        confirm.tap()
+        XCTAssertEqual(app.textFields["form.title"].value as? String, "Put the bins out")
+    }
+
+    @MainActor
+    func testTouchAndHoldOnPlusStartsFromAFavourite() throws {
+        let app = launchSignedIn()
+        let plus = app.buttons["home.newChore"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 5))
+        plus.press(forDuration: 1.0)
+
+        let item = app.buttons["Woolworths run"].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 3), "the + menu lists favourites")
+        attachScreenshot(app, named: "home-plus-favourites-menu")
+        item.tap()
+
+        XCTAssertEqual(app.textFields["form.title"].waitForExistence(timeout: 5) ? app.textFields["form.title"].value as? String : nil,
+                       "Woolworths run")
+        // Opened from a favourite and untouched: Cancel closes without asking.
+        app.buttons["form.cancel"].tap()
+        XCTAssertTrue(app.buttons["home.newChore"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Discard Changes"].exists)
+    }
+
+    @MainActor
+    func testSaveAsFavouriteFromAChoreThenItIsListedInSettings() throws {
+        let app = launchSignedIn()
+        openDetail(app, containing: "Water the garden")
+
+        app.buttons["detail.more"].tap()
+        let save = app.buttons["detail.saveFavourite"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 3))
+        save.tap()
+
+        let title = app.textFields["favourite.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, "Water the garden")
+        app.buttons["favourite.save"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["detail.favouriteSaved"].waitForExistence(timeout: 5))
+
+        backToList(app)
+        openFavourites(app)
+        waitForCount(favouriteRows(app), 3)
+        XCTAssertTrue(favouriteRows(app).matching(NSPredicate(format: "label CONTAINS %@", "Water the garden")).firstMatch.exists)
+    }
+
+    @MainActor
+    func testSavingAFavouriteWithATakenNameOffersToReplaceIt() throws {
+        let app = launchSignedIn()
+        openFavourites(app)
+        waitForCount(favouriteRows(app), 2)
+
+        app.buttons["favourites.add"].tap()
+        let title = app.textFields["favourite.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("woolworths RUN")
+        app.buttons["favourite.save"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["favourite.duplicate"].waitForExistence(timeout: 3))
+        app.buttons["favourite.replace"].tap()
+        let replace = app.buttons["favourite.confirmReplace"].firstMatch
+        XCTAssertTrue(replace.waitForExistence(timeout: 3))
+        replace.tap()
+
+        XCTAssertTrue(app.navigationBars["Favourite Chores"].waitForExistence(timeout: 5))
+        waitForCount(favouriteRows(app), 2)
+    }
+
+    @MainActor
+    func testFavouritesCanBeAddedEditedAndDeletedInSettings() throws {
+        let app = launchSignedIn()
+        openFavourites(app)
+        waitForCount(favouriteRows(app), 2)
+        attachScreenshot(app, named: "settings-favourites")
+
+        // Add.
+        app.buttons["favourites.add"].tap()
+        let title = app.textFields["favourite.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("Water the plants")
+        app.buttons["favourite.save"].tap()
+        waitForCount(favouriteRows(app), 3)
+
+        // Edit.
+        func row(_ text: String) -> XCUIElement {
+            favouriteRows(app).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+        }
+        row("Water the plants").tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.clearAndTypeText("Water the pot plants")
+        app.buttons["favourite.save"].tap()
+        XCTAssertTrue(row("Water the pot plants").waitForExistence(timeout: 5))
+
+        // Delete, with confirmation.
+        row("Water the pot plants").swipeLeft()
+        app.buttons["Delete"].firstMatch.tap()
+        let confirm = app.buttons["favourites.confirmDelete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        waitForCount(favouriteRows(app), 2)
+    }
+
+    @MainActor
+    func testWithNoFavouritesSettingsExplainsHowToAddOne() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestNoFavourites"])
+        openFavourites(app)
+        XCTAssertTrue(app.descendants(matching: .any)["favourites.empty"].waitForExistence(timeout: 5))
+        attachScreenshot(app, named: "settings-favourites-empty")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // And a new chore shows no favourites row.
+        openNewChoreForm(app)
+        XCTAssertFalse(app.buttons["form.favourite"].exists)
+    }
+
     /// Scrolls the current screen until `element` is on screen: lazy lists and forms
     /// only expose rows that have been rendered.
     @MainActor

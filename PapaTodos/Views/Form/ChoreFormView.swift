@@ -12,14 +12,25 @@ struct ChoreFormView: View {
     let onFinished: (String?, Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(FavouritesStore.self) private var favourites
     @State private var isConfirmingDiscard = false
     @State private var isConfirmingDelete = false
-    /// The stored description, kept for the read-only view of a protected one.
-    private let storedDescription: String?
+    /// A favourite swap or clear waiting for confirmation, because it would replace changes.
+    @State private var pendingFavourite: PendingFavourite?
 
-    init(model: ChoreFormModel, storedDescription: String?, onFinished: @escaping (String?, Bool) -> Void) {
+    private enum PendingFavourite {
+        case use(ChoreTemplate)
+        case clear(ChoreTemplate)
+
+        var template: ChoreTemplate {
+            switch self {
+            case .use(let template), .clear(let template): template
+            }
+        }
+    }
+
+    init(model: ChoreFormModel, onFinished: @escaping (String?, Bool) -> Void) {
         _model = State(initialValue: model)
-        self.storedDescription = storedDescription
         self.onFinished = onFinished
     }
 
@@ -34,6 +45,9 @@ struct ChoreFormView: View {
                     }
                 }
 
+                if showsFavouriteChips {
+                    favouriteChipsSection
+                }
                 titleSection
                 descriptionSection
                 assigneeAndStatusSection
@@ -80,13 +94,122 @@ struct ChoreFormView: View {
             } message: {
                 Text("This also deletes its comments and photos and can't be undone.")
             }
+            .confirmationDialog(
+                pendingFavouriteTitle,
+                isPresented: Binding(get: { pendingFavourite != nil }, set: { if !$0 { pendingFavourite = nil } }),
+                titleVisibility: .visible,
+                presenting: pendingFavourite
+            ) { pending in
+                switch pending {
+                case .use(let template):
+                    Button("Use “\(template.title)”") { model.apply(template) }
+                        .accessibilityIdentifier("form.confirmFavourite")
+                case .clear:
+                    Button("Clear", role: .destructive) { model.clearFavourite() }
+                        .accessibilityIdentifier("form.confirmFavourite")
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { pending in
+                switch pending {
+                case .use:
+                    Text("The title, description and assignee are replaced. The due date, status and photos stay as they are.")
+                case .clear:
+                    Text("The title, description and assignee are cleared. The due date, status and photos stay as they are.")
+                }
+            }
             .task { await model.loadPeople() }
+            .task { if !model.isEditing { await favourites.load() } }
             .task { await seedPhotoForUITests() }
             .onChange(of: model.didFinish) { _, finished in
                 guard finished else { return }
                 onFinished(model.notice, model.wasDeleted)
                 dismiss()
             }
+        }
+    }
+
+    // MARK: favourites
+
+    /// A new chore always shows the favourites, so you can switch between them at any point.
+    private var showsFavouriteChips: Bool {
+        !model.isEditing && !favourites.templates.isEmpty
+    }
+
+    /// Suggestions only while typing a title from scratch; once a favourite is picked the chips
+    /// already show it and the others.
+    private var titleSuggestions: [ChoreTemplate] {
+        guard !model.isEditing, model.appliedFavouriteID == nil else { return [] }
+        return favourites.suggestions(for: model.title)
+    }
+
+    private var pendingFavouriteTitle: String {
+        switch pendingFavourite {
+        case .use(let template): "Replace your changes with “\(template.title)”?"
+        case .clear: "Clear the favourite and your changes?"
+        case nil: ""
+        }
+    }
+
+    private var favouriteChipsSection: some View {
+        Section {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(favourites.templates) { template in
+                            favouriteChip(template)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                // Opened from a favourite further along the row: bring it into view.
+                .onAppear {
+                    if let id = model.appliedFavouriteID { proxy.scrollTo(id, anchor: .center) }
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        } header: {
+            Text("Start from a favourite")
+        } footer: {
+            if model.appliedFavouriteID != nil {
+                Text("Tap another favourite to switch, or tap this one again to clear it.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func favouriteChip(_ template: ChoreTemplate) -> some View {
+        let isSelected = model.appliedFavouriteID == template.id
+        let chip = Button {
+            choose(template)
+        } label: {
+            Label(template.title, systemImage: isSelected ? "checkmark" : "star")
+                .lineLimit(1)
+                .frame(minHeight: 32)
+        }
+        .buttonBorderShape(.capsule)
+        .accessibilityLabel("Favourite \(template.title)")
+        .accessibilityHint(isSelected ? "Clears it from this chore." : "Fills in the title, description and assignee.")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("form.favourite")
+        .id(template.id)
+
+        if isSelected {
+            chip.buttonStyle(.borderedProminent)
+        } else {
+            chip.buttonStyle(.bordered)
+        }
+    }
+
+    /// Picks, swaps or clears a favourite, asking first only if it would replace something the
+    /// user wrote.
+    private func choose(_ template: ChoreTemplate) {
+        let isSelected = model.appliedFavouriteID == template.id
+        if model.favouriteChangeNeedsConfirmation {
+            pendingFavourite = isSelected ? .clear(template) : .use(template)
+        } else if isSelected {
+            model.clearFavourite()
+        } else {
+            model.apply(template)
         }
     }
 
@@ -98,6 +221,15 @@ struct ChoreFormView: View {
                 .submitLabel(.next)
                 .onChange(of: model.title) { model.clearTitleError() }
                 .accessibilityIdentifier("form.title")
+            ForEach(titleSuggestions) { template in
+                Button {
+                    choose(template)
+                } label: {
+                    Label(template.title, systemImage: "star")
+                }
+                .accessibilityLabel("Use favourite \(template.title)")
+                .accessibilityIdentifier("form.suggestion")
+            }
             if let error = model.titleError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
@@ -113,7 +245,7 @@ struct ChoreFormView: View {
     private var descriptionSection: some View {
         Section {
             if model.isDescriptionProtected {
-                ProtectedDescriptionView(stored: storedDescription) {
+                ProtectedDescriptionView(stored: model.protectedDescription) {
                     model.beginEditingProtectedDescription()
                 }
             } else {

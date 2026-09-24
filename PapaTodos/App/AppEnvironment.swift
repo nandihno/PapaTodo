@@ -8,6 +8,7 @@ struct AppEnvironment: Sendable {
     let choreRepository: any ChoreRepository
     let commentRepository: any CommentRepository
     let profileRepository: any ProfileRepository
+    let choreTemplateRepository: any ChoreTemplateRepository
     let attachmentRepository: any AttachmentRepository
     let attachmentStorage: any AttachmentStorage
     let deviceRegistry: any NotificationDeviceRegistering
@@ -21,6 +22,7 @@ struct AppEnvironment: Sendable {
             choreRepository: SupabaseChoreRepository(client: client),
             commentRepository: SupabaseCommentRepository(client: client),
             profileRepository: SupabaseProfileRepository(client: client),
+            choreTemplateRepository: SupabaseChoreTemplateRepository(client: client),
             attachmentRepository: SupabaseAttachmentRepository(client: client),
             attachmentStorage: SupabaseAttachmentStorage(client: client),
             deviceRegistry: SupabaseNotificationDeviceRegistry(
@@ -36,6 +38,7 @@ struct AppEnvironment: Sendable {
         failFirstChoreFetches: Int = 0,
         remoteComment: Bool = false,
         storageRefusesDeletes: Bool = false,
+        noFavourites: Bool = false,
         notificationStatus: NotificationAuthorization = .notDetermined
     ) -> AppEnvironment {
         let faults = FaultInjector()
@@ -50,6 +53,7 @@ struct AppEnvironment: Sendable {
             choreRepository: chores,
             commentRepository: comments,
             profileRepository: FixtureProfileRepository(),
+            choreTemplateRepository: FixtureChoreTemplateRepository(templates: noFavourites ? [] : FixtureData.templates),
             attachmentRepository: FixtureAttachmentRepository(faults: faults, chores: chores),
             attachmentStorage: FixtureAttachmentStorage(faults: faults, allowsDelete: !storageRefusesDeletes),
             deviceRegistry: FixtureNotificationDeviceRegistry(),

@@ -10,11 +10,17 @@ struct HomeView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(PushRegistrationModel.self) private var push
+    @Environment(FavouritesStore.self) private var favourites
     @State private var presentedForm: FormRoute?
 
     private enum FormRoute: Identifiable {
-        case create
-        var id: String { "create" }
+        /// A new chore, pre-filled from a favourite when one is given.
+        case create(ChoreTemplate?)
+        var id: String {
+            switch self {
+            case .create(let template): template.map { "create-\($0.id)" } ?? "create"
+            }
+        }
     }
 
     var body: some View {
@@ -23,11 +29,30 @@ struct HomeView: View {
             .searchable(text: $home.searchQuery, prompt: "Search chores")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        presentedForm = .create
+                    // Tap for a blank chore; touch and hold to start from a favourite.
+                    Menu {
+                        Button {
+                            presentedForm = .create(nil)
+                        } label: {
+                            Label("Blank Chore", systemImage: "square.and.pencil")
+                        }
+                        if !favourites.templates.isEmpty {
+                            Section("Favourites") {
+                                ForEach(favourites.templates.prefix(5)) { template in
+                                    Button {
+                                        presentedForm = .create(template)
+                                    } label: {
+                                        Label(template.title, systemImage: "star")
+                                    }
+                                }
+                            }
+                        }
                     } label: {
                         Label("New Chore", systemImage: "plus")
+                    } primaryAction: {
+                        presentedForm = .create(nil)
                     }
+                    .accessibilityHint(favourites.templates.isEmpty ? "" : "Touch and hold to start from a favourite.")
                     .accessibilityIdentifier("home.newChore")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -49,7 +74,9 @@ struct HomeView: View {
     }
 
     private func formView(for route: FormRoute) -> some View {
-        ChoreFormView(model: formFactory.makeModel(mode: .create), storedDescription: nil) { notice, _ in
+        let model = formFactory.makeModel(mode: .create)
+        if case .create(let template?) = route { model.apply(template, asBaseline: true) }
+        return ChoreFormView(model: model) { notice, _ in
             home.showNotice(notice)
             Task { await home.refresh() }
         }

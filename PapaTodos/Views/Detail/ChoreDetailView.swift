@@ -14,6 +14,16 @@ struct ChoreDetailView: View {
     @Environment(\.openURL) private var openURL
     @State private var viewerIndex: ViewerRoute?
     @State private var isEditing = false
+    @Environment(FavouritesStore.self) private var favourites
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var favouriteDraft: FavouriteDraftRoute?
+    /// Briefly confirms a favourite was saved.
+    @State private var savedFavouriteTitle: String?
+
+    private struct FavouriteDraftRoute: Identifiable {
+        let draft: ChoreTemplateDraft
+        let id = UUID()
+    }
 
     private struct ViewerRoute: Identifiable {
         let index: Int
@@ -39,6 +49,37 @@ struct ChoreDetailView: View {
                     }
                     .disabled(model.chore == nil)
                     .accessibilityIdentifier("detail.edit")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            if let chore = model.chore { favouriteDraft = FavouriteDraftRoute(draft: ChoreTemplateDraft(chore: chore)) }
+                        } label: {
+                            Label("Save as Favourite", systemImage: "star")
+                        }
+                        .accessibilityIdentifier("detail.saveFavourite")
+                    } label: {
+                        Label("More", systemImage: "ellipsis")
+                    }
+                    .disabled(model.chore == nil)
+                    .accessibilityIdentifier("detail.more")
+                }
+            }
+            .overlay(alignment: .top) {
+                if let title = savedFavouriteTitle {
+                    Label("“\(title)” saved to Favourites", systemImage: "star.fill")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 8)
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("detail.favouriteSaved")
+                }
+            }
+            .sheet(item: $favouriteDraft) { route in
+                FavouriteEditorView(model: FavouriteEditorModel(mode: .create(route.draft), store: favourites)) { title in
+                    showFavouriteSaved(title)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -346,14 +387,23 @@ struct ChoreDetailView: View {
         )
     }
 
+    // MARK: favourites
+
+    private func showFavouriteSaved(_ title: String) {
+        withAnimation { savedFavouriteTitle = title }
+        AccessibilityNotification.Announcement("\(title) saved to Favourites").post()
+        Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            withAnimation { savedFavouriteTitle = nil }
+        }
+    }
+
     // MARK: edit
 
     @ViewBuilder
     private var editForm: some View {
         if let chore = model.chore {
-            ChoreFormView(
-                model: formFactory.makeModel(mode: .edit(chore)), storedDescription: chore.description
-            ) { notice, deleted in
+            ChoreFormView(model: formFactory.makeModel(mode: .edit(chore))) { notice, deleted in
                 onChanged(notice, deleted)
                 if deleted {
                     dismiss()

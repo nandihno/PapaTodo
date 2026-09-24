@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MainRoute: Hashable {
     case settings
+    case favourites
     case detail(UUID)
 }
 
@@ -14,6 +15,7 @@ struct MainView: View {
 
     @State private var home: HomeModel
     @State private var profileStore: ProfileStore
+    @State private var favourites: FavouritesStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AppRouter.self) private var router
@@ -29,6 +31,9 @@ struct MainView: View {
         _profileStore = State(initialValue: ProfileStore(
             userID: user.userId, repository: environment.profileRepository, onSessionExpired: expire
         ))
+        _favourites = State(initialValue: FavouritesStore(
+            repository: environment.choreTemplateRepository, profiles: environment.profileRepository, onSessionExpired: expire
+        ))
     }
 
     var body: some View {
@@ -40,14 +45,20 @@ struct MainView: View {
                         SettingsView(user: user, store: profileStore) {
                             Task { await session.signOut() }
                         }
+                    case .favourites:
+                        FavouritesListView()
                     case .detail(let id):
                         detailView(for: id)
                     }
                 }
         }
+        // Settings, the chore form, the Home + menu and the detail screen all read the shared favourites.
+        .environment(favourites)
         .tint(tint)
         .task { await home.load() }
         .task { await profileStore.load() }
+        .task { await favourites.load() }
+        .task { await favourites.loadPeople() }
         .task { await push.sessionDidSignIn() }
         .onDisappear { push.sessionDidSignOut() }
         // A tapped notification (or a UI test) asks to open a chore: replace the stack with Home then
@@ -65,6 +76,7 @@ struct MainView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await home.refresh() }
+                Task { await favourites.load() }
             }
         }
     }
