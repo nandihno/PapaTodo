@@ -103,6 +103,7 @@ struct ChoreFormFavouriteTests {
     @Test func aListDescriptionIsSavedExactlyAsTheFavouriteHasIt() async throws {
         let (model, chores) = makeModel()
         model.apply(template("Woolworths run", description: listDescription))
+        model.assignedTo = FixtureData.otherUserID
         #expect(model.isDescriptionProtected)
         #expect(model.protectedDescription == listDescription)
 
@@ -116,6 +117,7 @@ struct ChoreFormFavouriteTests {
     @Test func editingAProtectedFavouriteDescriptionAsTextUsesTheFavouritesText() async throws {
         let (model, chores) = makeModel()
         model.apply(template("Woolworths run", description: listDescription))
+        model.assignedTo = FixtureData.otherUserID
         model.beginEditingProtectedDescription()
         #expect(!model.isDescriptionProtected)
         #expect(String(model.descriptionText.characters).contains("Milk"))
@@ -231,6 +233,7 @@ struct ChoreFormFavouriteTests {
         let (model, chores) = makeModel()
         model.apply(template("Woolworths run", description: listDescription))
         model.apply(template("Put the bins out", description: "Yellow lid"))
+        model.assignedTo = FixtureData.otherUserID
         #expect(!model.isDescriptionProtected)
         #expect(model.protectedDescription == nil)
         await model.save()

@@ -9,6 +9,8 @@ import Observation
 /// - A description the editor can't represent (lists, tables, emphasis...) stays exactly as
 ///   stored unless the user explicitly chooses to edit it as simplified text.
 /// - Only one save or delete runs at a time, and the draft survives any failure.
+/// - A chore can't be saved without an assignee, whether new or edited; trying raises an
+///   alert instead.
 /// - A favourite applied to a new chore copies its description exactly as stored, including
 ///   structure the editor can't hold.
 @Observable
@@ -42,7 +44,11 @@ final class ChoreFormModel {
     /// The stored description being protected (from the chore being edited or an applied
     /// favourite), shown read-only and saved unchanged.
     private(set) var protectedDescription: String?
-    var assignedTo: UUID?
+    var assignedTo: UUID? {
+        didSet { if assignedTo != nil { isShowingAssigneeRequired = false } }
+    }
+    /// Save was tapped with nobody assigned; the form shows an alert.
+    var isShowingAssigneeRequired = false
     var status: ChoreStatus = .pending
     var due: DueDateForm.Fields
     private(set) var people: [ProfileSummary] = []
@@ -281,11 +287,10 @@ final class ChoreFormModel {
     func save() async {
         guard phase == .editing else { return }   // ignore a second tap while one is in flight
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else {
-            titleError = "Title is required."
-            return
-        }
-        titleError = nil
+        titleError = trimmedTitle.isEmpty ? "Title is required." : nil
+        // Every chore must be given to someone, including an older unassigned one being edited.
+        if assignedTo == nil { isShowingAssigneeRequired = true }
+        guard titleError == nil, assignedTo != nil else { return }
         errorMessage = nil
         phase = .saving
 

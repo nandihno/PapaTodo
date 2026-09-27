@@ -201,6 +201,26 @@ final class PapaTodosUITests: XCTestCase {
         XCTAssertTrue(app.textFields["form.title"].waitForExistence(timeout: 5))
     }
 
+    /// Picks someone from the form's "Assigned to" menu.
+    @MainActor
+    private func chooseAssignee(_ name: String, in app: XCUIApplication) {
+        let picker = app.buttons["form.assignee"]
+        reveal(picker, in: app)
+        picker.tap()
+        let option = app.buttons[name].firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: 3), "\(name) is offered as an assignee")
+        option.tap()
+    }
+
+    /// Saving a chore with nobody assigned raises an alert; this checks it and closes it.
+    @MainActor
+    private func dismissAssigneeAlert(_ app: XCUIApplication) {
+        let alert = app.alerts["Choose an assignee"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), "saving without an assignee must explain why")
+        alert.buttons["OK"].tap()
+        XCTAssertFalse(alert.waitForExistence(timeout: 1))
+    }
+
     @MainActor
     private func card(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         cards(app).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
@@ -256,11 +276,20 @@ final class PapaTodosUITests: XCTestCase {
         openNewChoreForm(app)
         app.buttons["form.save"].tap()
         XCTAssertTrue(app.staticTexts["form.titleError"].waitForExistence(timeout: 3), "saving without a title must explain why")
+        dismissAssigneeAlert(app)
 
         let title = app.textFields["form.title"]
         title.tap()
         title.typeText("Buy birthday candles")
         XCTAssertFalse(app.staticTexts["form.titleError"].exists, "the error clears once a title is typed")
+
+        // A title alone isn't enough: a new chore needs an assignee.
+        app.buttons["form.save"].tap()
+        attachScreenshot(app, named: "form-assignee-required")
+        dismissAssigneeAlert(app)
+        XCTAssertTrue(app.buttons["form.save"].exists, "the form stays open without an assignee")
+
+        chooseAssignee("Alex Sample", in: app)
         app.buttons["form.save"].tap()
 
         waitForCards(app, count: 5)
@@ -401,6 +430,7 @@ final class PapaTodosUITests: XCTestCase {
         let title = app.textFields["form.title"]
         title.tap()
         title.typeText("Chore with photo")
+        chooseAssignee("Alex Sample", in: app)
         app.buttons["form.save"].tap()
 
         app.segmentedControls["home.tabs"].buttons["All"].tap()
@@ -449,9 +479,13 @@ final class PapaTodosUITests: XCTestCase {
         XCTAssertTrue((shown.label).contains("Cans"))
         XCTAssertFalse(app.textViews["form.description"].exists, "no editor until the user opts in")
 
-        // An unrelated edit leaves the description alone: rename and save.
+        // An unrelated edit leaves the description alone: rename and save. This chore has no
+        // assignee yet, so saving first asks for one.
         let title = app.textFields["form.title"]
         title.clearAndTypeText("Sort the pantry shelves")
+        app.buttons["form.save"].tap()
+        dismissAssigneeAlert(app)
+        chooseAssignee("Alex Sample", in: app)
         app.buttons["form.save"].tap()
         XCTAssertTrue(app.navigationBars["Sort the pantry shelves"].waitForExistence(timeout: 5))
         backToList(app)

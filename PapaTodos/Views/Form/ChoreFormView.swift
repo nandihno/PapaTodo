@@ -117,6 +117,11 @@ struct ChoreFormView: View {
                     Text("The title, description and assignee are cleared. The due date, status and photos stay as they are.")
                 }
             }
+            .alert("Choose an assignee", isPresented: $model.isShowingAssigneeRequired) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Every chore needs someone assigned to it. Pick a person under “Assigned to”, then save.")
+            }
             .task { await model.loadPeople() }
             .task { if !model.isEditing { await favourites.load() } }
             .task { await seedPhotoForUITests() }
@@ -259,7 +264,7 @@ struct ChoreFormView: View {
     private var assigneeAndStatusSection: some View {
         Section {
             Picker("Assigned to", selection: $model.assignedTo) {
-                Text("Unassigned").tag(UUID?.none)
+                Text("Choose someone").tag(UUID?.none)
                 ForEach(assigneeChoices) { person in
                     Text(person.fullName ?? "Family member").tag(UUID?.some(person.id))
                 }
@@ -272,6 +277,11 @@ struct ChoreFormView: View {
                 }
             }
             .accessibilityIdentifier("form.status")
+        } footer: {
+            if model.assignedTo == nil {
+                Text("A chore needs someone assigned to it.")
+                    .accessibilityIdentifier("form.assigneeRequired")
+            }
         }
     }
 

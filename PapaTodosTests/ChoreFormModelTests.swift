@@ -64,6 +64,69 @@ struct ChoreFormModelTests {
         #expect(!model.didFinish)
     }
 
+    @Test func aNewChoreNeedsAnAssigneeAndRaisesTheAlertWithoutSending() async {
+        let world = makeWorld()
+        let model = makeModel(world, mode: .create)
+        model.title = "Wash car"
+
+        await model.save()
+
+        #expect(model.isShowingAssigneeRequired)
+        #expect(await world.chores.allChores.isEmpty)
+        #expect(!model.didFinish)
+        #expect(model.phase == .editing)
+        #expect(model.title == "Wash car", "the draft is kept")
+
+        model.assignedTo = FixtureData.otherUserID
+        #expect(!model.isShowingAssigneeRequired, "choosing someone clears the alert")
+        await model.save()
+        #expect(model.didFinish)
+        #expect(await world.chores.allChores.first?.assignedTo == FixtureData.otherUserID)
+    }
+
+    @Test func aMissingTitleAndAssigneeAreBothReported() async {
+        let world = makeWorld()
+        let model = makeModel(world, mode: .create)
+        await model.save()
+        #expect(model.titleError == "Title is required.")
+        #expect(model.isShowingAssigneeRequired)
+        #expect(await world.chores.allChores.isEmpty)
+    }
+
+    @Test func anExistingUnassignedChoreMustBeAssignedBeforeAnEditSaves() async throws {
+        var existing = chore()
+        existing.assignedTo = nil
+        let world = makeWorld(seed: [existing])
+        let model = makeModel(world, mode: .edit(existing))
+        model.title = "Renamed"
+
+        await model.save()
+
+        #expect(model.isShowingAssigneeRequired)
+        #expect(!model.didFinish)
+        #expect(try #require(await world.chores.allChores.first).updatedAt == existing.updatedAt, "nothing was written")
+
+        model.assignedTo = FixtureData.currentUserID
+        await model.save()
+        let after = try #require(await world.chores.allChores.first)
+        #expect(model.didFinish)
+        #expect(after.title == "Renamed")
+        #expect(after.assignedTo == FixtureData.currentUserID)
+    }
+
+    @Test func anEditCannotUnassignAChore() async throws {
+        let existing = chore()
+        let world = makeWorld(seed: [existing])
+        let model = makeModel(world, mode: .edit(existing))
+        model.assignedTo = nil
+
+        await model.save()
+
+        #expect(model.isShowingAssigneeRequired)
+        #expect(!model.didFinish)
+        #expect(try #require(await world.chores.allChores.first).assignedTo == FixtureData.otherUserID)
+    }
+
     @Test func createTrimsTheTitleStoresPlainTextAndFinishes() async throws {
         let world = makeWorld()
         let model = makeModel(world, mode: .create)
@@ -89,6 +152,7 @@ struct ChoreFormModelTests {
         let world = makeWorld()
         let model = makeModel(world, mode: .create)
         model.title = "T"
+        model.assignedTo = FixtureData.otherUserID
         model.descriptionText = AttributedString(" \n ")
         await model.save()
         #expect(try #require(await world.chores.allChores.first).description == nil)
@@ -128,13 +192,13 @@ struct ChoreFormModelTests {
         let world = makeWorld(seed: [existing])
         let model = makeModel(world, mode: .edit(existing))
         model.status = .done
-        model.assignedTo = nil
+        model.assignedTo = FixtureData.currentUserID
 
         await model.save()
 
         let after = try #require(await world.chores.allChores.first)
         #expect(after.status == .done)
-        #expect(after.assignedTo == nil)
+        #expect(after.assignedTo == FixtureData.currentUserID)
         #expect(after.title == "Existing")
         #expect(after.dueDate == existing.dueDate)
     }
@@ -197,6 +261,7 @@ struct ChoreFormModelTests {
         let world = makeWorld()
         let model = makeModel(world, mode: .create)
         model.title = "Keep me"
+        model.assignedTo = FixtureData.otherUserID
         model.descriptionText = AttributedString("draft text")
         await world.faults.arm(.createChore, error: .offline)
 
@@ -218,6 +283,7 @@ struct ChoreFormModelTests {
         let world = makeWorld()
         let model = makeModel(world, mode: .create)
         model.title = "Once"
+        model.assignedTo = FixtureData.otherUserID
         async let first: Void = model.save()
         async let second: Void = model.save()
         _ = await (first, second)
@@ -229,6 +295,7 @@ struct ChoreFormModelTests {
         let world = makeWorld()
         let model = makeModel(world, mode: .create, onExpired: { expired += 1 })
         model.title = "T"
+        model.assignedTo = FixtureData.otherUserID
         await world.faults.arm(.createChore, error: .sessionExpired)
         await model.save()
         #expect(expired == 1)
@@ -270,6 +337,7 @@ struct ChoreFormModelTests {
         let world = makeWorld()
         let model = makeModel(world, mode: .create)
         model.title = "With photo"
+        model.assignedTo = FixtureData.otherUserID
         await model.addPhotos([(try pngData(), "a.png")])
         await model.save()
         let saved = try #require(await world.chores.allChores.first)

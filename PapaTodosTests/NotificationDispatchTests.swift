@@ -61,7 +61,7 @@ struct NotificationDispatchTests {
         #expect(await waitUntil { await notifier.sent == [.init(event: .choreAssigned, choreID: created.id)] })
     }
 
-    @Test func creatingAnUnassignedChoreSendsNothing() async throws {
+    @Test func aNewChoreWithoutAnAssigneeIsNotSavedAndSendsNothing() async throws {
         let chores = FixtureChoreRepository(chores: [])
         let notifier = FixtureNotificationDispatcher()
         let model = formModel(mode: .create, chores: chores, notifier: notifier)
@@ -69,7 +69,9 @@ struct NotificationDispatchTests {
 
         await model.save()
 
-        #expect(model.didFinish)
+        #expect(!model.didFinish)
+        #expect(model.isShowingAssigneeRequired)
+        #expect(await chores.allChores.isEmpty)
         try? await Task.sleep(for: .milliseconds(100))
         #expect(await notifier.sent.isEmpty)
     }
