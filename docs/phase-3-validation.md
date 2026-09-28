@@ -7,7 +7,7 @@ Phase scope: specification.md section 14, "Phase 3 - Chore editing, rich text, a
 
 ## Product decisions (user, 2026-09-19)
 
-1. **Rich text is links only.** The native editor edits text and links. This is the explicit product decision specification.md section 9.5 requires before reducing rich-text editing; it revises Phase 0 decision #6. Rendering still shows everything the web sanitizer allows.
+1. **Rich text is links only.** The native editor edits text and links. This is the explicit product decision specification.md section 9.5 requires before reducing rich-text editing; it revises Phase 0 decision #6. Rendering still shows everything the web sanitizer allows. **Extended 2026-09-28:** the editor also edits bullet lists (a Bullet List toggle, Return continues a bullet and ends the list on an empty one, "- "/"* " starts one; stored as a top-level `<ul><li>`, see `DescriptionBullets`). Numbered or nested lists and emphasis stay protected.
 2. **Existing formatting is protected.** A description with lists, tables, headings, emphasis, quotes or code is displayed as stored and is never rewritten by an unrelated edit. Editing it requires an explicit, confirmed "Edit as Text" choice that flattens it.
 3. **Write testing:** fakes and a stubbed network for everything automated, plus one manual smoke test on the live project by the user.
 

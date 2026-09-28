@@ -8,7 +8,7 @@ private func template(
     ChoreTemplate(id: id, title: title, description: description, assignedTo: assignedTo, sortOrder: order, createdBy: nil)
 }
 
-private let listDescription = "<p>Check the list:</p><ul><li>Milk</li><li>Bread</li></ul>"
+private let listDescription = "<p>Check the list:</p><ol><li>Milk</li><li>Bread</li></ol>"
 
 // MARK: rules
 
@@ -124,7 +124,7 @@ struct ChoreFormFavouriteTests {
 
         await model.save()
         let saved = try #require(await chores.allChores.first)
-        #expect(saved.description?.contains("<ul>") != true)
+        #expect(saved.description?.contains("<ol>") != true)
         #expect(saved.description?.contains("Milk") == true)
     }
 

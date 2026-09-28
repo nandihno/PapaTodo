@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The editing surface allows text and links only. Everything else the system text editor
-/// could apply (bold, italic, underline, fonts, colors...) is filtered out, because only text
-/// and links are stored.
+/// could apply (bold, italic, underline, fonts, colors...) is filtered out, because only text,
+/// links and bullet lines are stored. Bullets are plain "• " text (see `DescriptionBullets`).
 private struct LinkOnlyScope: AttributeScope {
     let link: AttributeScopes.FoundationAttributes.LinkAttribute
 }
@@ -12,7 +12,7 @@ private struct LinksOnlyFormatting: AttributedTextFormattingDefinition {
     var body: some AttributedTextFormattingDefinition<LinkOnlyScope> {}
 }
 
-/// A text editor with an Add Link / Remove Link control for the selected text.
+/// A text editor with a Bullet List toggle and Add Link / Remove Link controls for the selected text.
 struct DescriptionEditorView: View {
     @Binding var text: AttributedString
 
@@ -30,7 +30,11 @@ struct DescriptionEditorView: View {
                 .frame(minHeight: 120)
                 .accessibilityLabel("Description")
                 .accessibilityIdentifier("form.description")
+                .onChange(of: text) { oldValue, newValue in
+                    applyListRules(old: oldValue, new: newValue)
+                }
 
+            bulletListButton
             addLinkButton
             removeLinkButton
 
@@ -51,6 +55,16 @@ struct DescriptionEditorView: View {
         } message: {
             Text("Enter a web address, email address, or phone number.")
         }
+    }
+
+    private var bulletListButton: some View {
+        Button {
+            toggleBullets()
+        } label: {
+            Label("Bullet List", systemImage: "list.bullet")
+        }
+        .accessibilityIdentifier("form.bulletList")
+        .accessibilityHint("Turns the current or selected lines into bullet points, or back into plain lines.")
     }
 
     private var addLinkButton: some View {
@@ -79,6 +93,44 @@ struct DescriptionEditorView: View {
         case .insertionPoint: true
         case .ranges(let ranges): ranges.isEmpty
         }
+    }
+
+    /// The selection as character offsets (a caret is an empty range).
+    private var selectedOffsets: Range<Int> {
+        let end = text.characters.count
+        switch selection.indices(in: text) {
+        case .insertionPoint(let index):
+            let offset = DescriptionBullets.offset(of: index, in: text) ?? end
+            return offset..<offset
+        case .ranges(let ranges):
+            guard let first = ranges.ranges.first, let last = ranges.ranges.last,
+                  let lower = DescriptionBullets.offset(of: first.lowerBound, in: text),
+                  let upper = DescriptionBullets.offset(of: last.upperBound, in: text) else { return end..<end }
+            return lower..<upper
+        }
+    }
+
+    private func toggleBullets() {
+        linkError = nil
+        apply(DescriptionBullets.toggle(text, selection: selectedOffsets))
+    }
+
+    /// Return continues or ends a bullet list, and "- " starts one, as in Notes.
+    private func applyListRules(old: AttributedString, new: AttributedString) {
+        var caret: Int?
+        if case .insertionPoint(let index) = selection.indices(in: new) {
+            caret = DescriptionBullets.offset(of: index, in: new)
+        }
+        guard let result = DescriptionBullets.afterTyping(old: old, new: new, caret: caret) else { return }
+        apply(result)
+    }
+
+    private func apply(_ result: DescriptionBullets.Result) {
+        text = result.text
+        let range = DescriptionBullets.range(result.selection, in: text)
+        selection = range.isEmpty
+            ? AttributedTextSelection(insertionPoint: range.lowerBound)
+            : AttributedTextSelection(range: range)
     }
 
     private func applyLink() {

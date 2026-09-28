@@ -468,6 +468,24 @@ final class PapaTodosUITests: XCTestCase {
     }
 
     @MainActor
+    func testBulletListsContinueOnReturnAndEndOnAnEmptyBullet() throws {
+        let app = launchSignedIn()
+        openNewChoreForm(app)
+
+        let description = app.textViews["form.description"]
+        reveal(description, in: app)
+        description.tap()
+        description.typeText("Shopping\n")
+
+        reveal(app.buttons["form.bulletList"], in: app)
+        app.buttons["form.bulletList"].tap()
+        description.typeText("eggs\nmilk\n\nThanks\n- bread")
+
+        let value = description.value as? String ?? ""
+        XCTAssertEqual(value, "Shopping\n• eggs\n• milk\nThanks\n• bread")
+    }
+
+    @MainActor
     func testAStructuredDescriptionIsProtectedUntilExplicitlyEdited() throws {
         let app = launchSignedIn()
         app.segmentedControls["home.tabs"].buttons["All"].tap()

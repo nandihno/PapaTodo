@@ -64,7 +64,7 @@ nonisolated enum FixtureData {
                   imageURL: photo, createdAt: ago(3), updatedAt: ago(3),
                   assignedProfile: currentSummary, createdProfile: currentSummary,
                   attachments: [attachment(gardenID, 0)]),
-            Chore(id: pantryID, title: "Sort the pantry", description: "<ul><li>Cans</li><li>Jars</li></ul>",
+            Chore(id: pantryID, title: "Sort the pantry", description: "<ol><li>Cans</li><li>Jars</li></ol>",
                   assignedTo: nil, createdBy: otherUserID, status: .pending, dueDate: nil,
                   imageURL: nil, createdAt: ago(4), updatedAt: ago(4),
                   assignedProfile: nil, createdProfile: otherSummary),
@@ -88,12 +88,12 @@ nonisolated enum FixtureData {
     static let woolworthsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000001")!
     static let binsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000002")!
 
-    /// Two shared favourites: a shopping run whose list only the web can author (so it is
-    /// protected in the editor), and a plain one with a default assignee.
+    /// Two shared favourites: a shopping run with a numbered list the editor can't author (so
+    /// it is protected in the editor), and a plain one with a default assignee.
     static let templates: [ChoreTemplate] = [
         ChoreTemplate(
             id: woolworthsTemplateID, title: "Woolworths run",
-            description: "<p>Check the list:</p><ul><li>Milk</li><li>Bread</li></ul>",
+            description: "<p>Check the list:</p><ol><li>Milk</li><li>Bread</li></ol>",
             assignedTo: nil, sortOrder: 0, createdBy: currentUserID
         ),
         ChoreTemplate(

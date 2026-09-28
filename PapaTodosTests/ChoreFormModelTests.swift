@@ -240,7 +240,8 @@ struct ChoreFormModelTests {
         #expect(model.isDirty)
 
         await model.save()
-        #expect(try #require(await world.chores.allChores.first).description == "• eggs\n• milk\n\nNote")
+        // The bullets stay a list; only the bold is lost.
+        #expect(try #require(await world.chores.allChores.first).description == "<ul><li>eggs</li><li>milk</li></ul><p>Note</p>")
     }
 
     @Test func aDescriptionWithLinksAndBreaksIsEditableAndKeepsItsLinks() async throws {

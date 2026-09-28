@@ -197,11 +197,20 @@ struct DescriptionEditingTests {
     }
 
     @Test(arguments: [
-        "<ul><li>a</li></ul>", "<ol><li>a</li></ol>", "<h2>T</h2>", "<table><tr><td>1</td></tr></table>",
+        "<ol><li>a</li></ol>", "<ul><li>a<ul><li>a1</li></ul></li></ul>", "<div><ul><li>a</li></ul></div>",
+        "<ul><li><b>a</b></li></ul>", "<h2>T</h2>", "<table><tr><td>1</td></tr></table>",
         "<p><b>bold</b></p>", "<em>x</em>", "<u>x</u>", "<blockquote>q</blockquote>", "<pre>c</pre>", "<code>c</code>", "a<hr>b",
     ])
     func structureTheEditorCannotHoldIsProtected(html: String) {
         #expect(DescriptionEditing.load(html).isProtected)
+    }
+
+    @Test(arguments: [
+        "<ul><li>eggs</li><li>milk</li></ul>",
+        "<p>Shopping</p><ul>\n<li>eggs <a href=\"https://example.com\">brand</a></li>\n</ul><p>thanks</p>",
+    ])
+    func simpleBulletListsAreEditableWithoutProtection(html: String) {
+        #expect(!DescriptionEditing.load(html).isProtected)
     }
 
     @Test func protectedDescriptionsStillOfferAnExplicitFlattenedEditableText() {
@@ -254,7 +263,41 @@ struct DescriptionEditingTests {
         #expect(String(DescriptionEditing.load(stored).text.characters) == "use <b> for bold")
     }
 
+    @Test func bulletLinesAreStoredAsAList() {
+        let text = AttributedString("Shopping:\n• eggs\n• milk\n\nThanks")
+        #expect(DescriptionEditing.storageValue(for: text) == "<p>Shopping:</p><ul><li>eggs</li><li>milk</li></ul><p>Thanks</p>")
+    }
+
+    @Test func bulletsCanHoldLinksAndSpecialCharacters() {
+        let text = linked("• R&D <team>\n• see the site", link: "the site", to: "https://example.com")
+        #expect(DescriptionEditing.storageValue(for: text) == "<ul><li>R&amp;D &lt;team&gt;</li><li>see <a href=\"https://example.com\">the site</a></li></ul>")
+    }
+
+    @Test func emptyBulletsAreDroppedAndSplitTheList() {
+        #expect(DescriptionEditing.storageValue(for: AttributedString("• a\n• \n• b")) == "<ul><li>a</li></ul><ul><li>b</li></ul>")
+        #expect(DescriptionEditing.storageValue(for: AttributedString("•")) == nil)
+    }
+
+    @Test func aBulletRightAfterALineStartsAList() {
+        #expect(DescriptionEditing.storageValue(for: AttributedString("Note\n•bare marker")) == "<p>Note</p><ul><li>bare marker</li></ul>")
+    }
+
+    @Test func aBulletInTheMiddleOfALineIsJustText() {
+        #expect(DescriptionEditing.storageValue(for: AttributedString("a • b")) == "a • b")
+    }
+
     // MARK: round trips
+
+    @Test func bulletListsAreStableAcrossLoadAndStore() throws {
+        let original = linked("Before you go:\n\n• lock the door\n• feed the cat\n\nCall me", link: "Call me", to: "tel:+61400000000")
+        let stored = try #require(DescriptionEditing.storageValue(for: original))
+
+        let reloaded = DescriptionEditing.load(stored)
+        #expect(!reloaded.isProtected)
+        #expect(String(reloaded.text.characters) == String(original.characters))
+        #expect(DescriptionEditing.storageValue(for: reloaded.text) == stored)
+        #expect(DescriptionHTML.serialize(DescriptionHTML.sanitizedNodes(stored)) == stored)
+    }
 
     @Test func linkDescriptionsAreStableAcrossLoadAndStore() throws {
         let original = linked("Call the vet at the number below\n\nBook via the site", link: "the site", to: "https://example.com/vet")
@@ -272,5 +315,133 @@ struct DescriptionEditingTests {
         let original = linked("a <b>tag</b> & a link", link: "link", to: "https://example.com")
         let stored = try #require(DescriptionEditing.storageValue(for: original))
         #expect(DescriptionHTML.serialize(DescriptionHTML.sanitizedNodes(stored)) == stored)
+    }
+}
+
+struct DescriptionBulletsTests {
+    private func string(_ text: AttributedString) -> String { String(text.characters) }
+
+    private func typing(_ character: Character, into old: String, at offset: Int, caretKnown: Bool = true) -> (String, Int)? {
+        var characters = Array(old)
+        characters.insert(character, at: offset)
+        let new = AttributedString(String(characters))
+        guard let result = DescriptionBullets.afterTyping(old: AttributedString(old), new: new, caret: caretKnown ? offset + 1 : nil) else { return nil }
+        #expect(result.selection.isEmpty)
+        return (string(result.text), result.selection.lowerBound)
+    }
+
+    // MARK: toggle
+
+    @Test func togglingAtACaretBulletsTheCurrentLine() {
+        let result = DescriptionBullets.toggle(AttributedString("one\ntwo\nthree"), selection: 5..<5)
+        #expect(string(result.text) == "one\n• two\nthree")
+        #expect(result.selection == 7..<7)
+    }
+
+    @Test func togglingAnEmptyEditorStartsABullet() {
+        let result = DescriptionBullets.toggle(AttributedString(), selection: 0..<0)
+        #expect(string(result.text) == "• ")
+        #expect(result.selection == 2..<2)
+    }
+
+    @Test func togglingASelectionBulletsEveryLineItTouches() {
+        let result = DescriptionBullets.toggle(AttributedString("one\ntwo\nthree"), selection: 1..<6)
+        #expect(string(result.text) == "• one\n• two\nthree")
+        #expect(result.selection == 3..<10)
+    }
+
+    @Test func aSelectionEndingAfterANewlineDoesNotTakeTheNextLine() {
+        let result = DescriptionBullets.toggle(AttributedString("one\ntwo"), selection: 0..<4)
+        #expect(string(result.text) == "• one\ntwo")
+    }
+
+    @Test func togglingLinesThatAreAllBulletsRemovesTheBullets() {
+        let result = DescriptionBullets.toggle(AttributedString("• one\n• two"), selection: 3..<9)
+        #expect(string(result.text) == "one\ntwo")
+        #expect(result.selection == 1..<5)
+    }
+
+    @Test func mixedLinesAreAllBulleted() {
+        let result = DescriptionBullets.toggle(AttributedString("• one\ntwo"), selection: 0..<9)
+        #expect(string(result.text) == "• one\n• two")
+    }
+
+    @Test func togglingKeepsLinks() {
+        var text = AttributedString("see site")
+        text[text.range(of: "site")!].link = URL(string: "https://example.com")
+        let result = DescriptionBullets.toggle(text, selection: 0..<0)
+        #expect(string(result.text) == "• see site")
+        let linked = result.text.runs.compactMap { run in run.link.map { _ in String(result.text[run.range].characters) } }
+        #expect(linked == ["site"])
+    }
+
+    // MARK: typing
+
+    @Test func returnOnABulletStartsANewBullet() throws {
+        let (text, caret) = try #require(typing("\n", into: "• eggs", at: 6))
+        #expect(text == "• eggs\n• ")
+        #expect(caret == 9)
+    }
+
+    @Test func returnInTheMiddleOfABulletSplitsIt() throws {
+        let (text, caret) = try #require(typing("\n", into: "• eggsmilk", at: 6))
+        #expect(text == "• eggs\n• milk")
+        #expect(caret == 9)
+    }
+
+    @Test func returnOnAnEmptyBulletEndsTheList() throws {
+        let (text, caret) = try #require(typing("\n", into: "• eggs\n• ", at: 9))
+        #expect(text == "• eggs\n")
+        #expect(caret == 7)
+    }
+
+    @Test func returnOnAPlainLineDoesNothing() {
+        #expect(typing("\n", into: "eggs", at: 4) == nil)
+        #expect(typing("\n", into: "• a\nplain", at: 9) == nil)
+    }
+
+    @Test func returnBeforeABlankLineUsesTheCaretToFindTheLine() throws {
+        // The caret is on the blank line, so this is a plain Return, not a new bullet.
+        #expect(typing("\n", into: "• a\n\nfoo", at: 4) == nil)
+        // Without a caret, a Return next to another newline counts as the earlier one.
+        let (text, _) = try #require(typing("\n", into: "• a\n• b", at: 3, caretKnown: false))
+        #expect(text == "• a\n• \n• b")
+    }
+
+    @Test func severalCharactersReportedAsOneChangeStillContinueTheList() throws {
+        // The editor can batch fast typing: "egg" -> "eggs\nm" in one change.
+        let old = AttributedString("• egg")
+        let new = AttributedString("• eggs\nm")
+        let result = try #require(DescriptionBullets.afterTyping(old: old, new: new, caret: 8))
+        #expect(string(result.text) == "• eggs\n• m")
+        #expect(result.selection == 10..<10)
+    }
+
+    @Test func aPastedOrReplacedListIsLeftAsIs() {
+        let list = "• eggs\n• milk\n• bread"
+        #expect(DescriptionBullets.afterTyping(old: AttributedString(), new: AttributedString(list), caret: list.count) == nil)
+    }
+
+    @Test func aBatchedReturnOnAnEmptyBulletEndsTheList() throws {
+        let result = try #require(DescriptionBullets.afterTyping(old: AttributedString("• a\n•"), new: AttributedString("• a\n• \nb"), caret: 8))
+        #expect(string(result.text) == "• a\nb")
+        #expect(result.selection == 5..<5)
+    }
+
+    @Test(arguments: ["-", "*"])
+    func dashOrStarThenSpaceAtALineStartBecomesABullet(marker: String) throws {
+        let (text, caret) = try #require(typing(" ", into: "Shop\n\(marker)", at: 6))
+        #expect(text == "Shop\n• ")
+        #expect(caret == 7)
+    }
+
+    @Test func dashSpaceInsideALineIsLeftAlone() {
+        #expect(typing(" ", into: "a -", at: 3) == nil)
+        #expect(typing(" ", into: "--", at: 2) == nil)
+    }
+
+    @Test func deletionsAndUnlocatableInsertionsAreIgnored() {
+        #expect(DescriptionBullets.afterTyping(old: AttributedString("• a"), new: AttributedString("• a\n\n"), caret: nil) == nil)
+        #expect(DescriptionBullets.afterTyping(old: AttributedString("• ab"), new: AttributedString("• a"), caret: 3) == nil)
     }
 }

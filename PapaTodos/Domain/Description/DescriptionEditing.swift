@@ -1,8 +1,8 @@
 import Foundation
 
 /// Converts between a stored description and what the native editor can hold: plain text
-/// with links. Everything else the web sanitizer allows (lists, headings, tables, emphasis,
-/// quotes, code) is rendered for reading but *protected* from silent loss: the editor only
+/// with links and bullet lists. Everything else the sanitizer allows (numbered lists,
+/// headings, tables, emphasis, quotes, code) is rendered for reading but *protected* from silent loss: the editor only
 /// touches such a description if the user explicitly chooses to simplify it.
 nonisolated enum DescriptionEditing {
     struct Loaded: Equatable {
@@ -11,7 +11,7 @@ nonisolated enum DescriptionEditing {
         var isProtected: Bool
     }
 
-    /// Tags a links-only editor can round-trip without losing anything.
+    /// Tags the editor can round-trip without losing anything (besides a simple `<ul>`).
     private static let representableTags: Set<String> = ["a", "br", "div", "p", "span"]
 
     static func load(_ stored: String?) -> Loaded {
@@ -32,13 +32,25 @@ nonisolated enum DescriptionEditing {
         load(stored).text
     }
 
+    /// Links, line breaks and simple bullet lists (a top-level `<ul>` of `<li>`s holding text
+    /// and links). Numbered or nested lists, and lists inside other blocks, stay protected.
     private static func isRepresentable(_ nodes: [DescriptionHTML.Node]) -> Bool {
         nodes.allSatisfy { node in
-            switch node {
-            case .text: true
-            case .element(let element):
-                representableTags.contains(element.tag) && isRepresentable(element.children)
+            guard case .element(let element) = node, element.tag == "ul" else { return isPlainContent(node) }
+            return element.children.allSatisfy { child in
+                switch child {
+                case .text(let text): text.allSatisfy(\.isWhitespace)
+                case .element(let item): item.tag == "li" && item.children.allSatisfy(isPlainContent)
+                }
             }
+        }
+    }
+
+    private static func isPlainContent(_ node: DescriptionHTML.Node) -> Bool {
+        switch node {
+        case .text: true
+        case .element(let element):
+            representableTags.contains(element.tag) && element.children.allSatisfy(isPlainContent)
         }
     }
 
@@ -49,15 +61,18 @@ nonisolated enum DescriptionEditing {
         case newline
     }
 
-    /// The value to store, or nil for an empty description. Text with no links is stored as
-    /// plain text, exactly as the web does; text with links is stored as sanitized HTML
-    /// (`<p>`, `<br>`, `<a href>`). Plain text that the web would mistake for HTML (it
-    /// contains something like `<b>`) is stored as escaped HTML so it displays literally.
+    /// The value to store, or nil for an empty description. Text with no links or bullets is
+    /// stored as plain text; otherwise it is stored as sanitized HTML (`<p>`, `<br>`,
+    /// `<a href>`, and `<ul><li>` for lines starting with "• "). Plain text that would be
+    /// mistaken for HTML (it contains something like `<b>`) is stored as escaped HTML so it
+    /// displays literally.
     static func storageValue(for text: AttributedString) -> String? {
         let segments = trimmed(segments(of: text))
         guard !segments.isEmpty else { return nil }
 
+        let lines = lines(of: segments)
         let hasLinks = segments.contains { if case .text(_, let url) = $0 { url != nil } else { false } }
+        let hasBullets = lines.contains { $0.isBullet }
         let plain = segments.map { segment -> String in
             switch segment {
             case .text(let string, _): string
@@ -65,10 +80,11 @@ nonisolated enum DescriptionEditing {
             }
         }.joined()
 
-        if !hasLinks && !DescriptionHTML.looksLikeHTML(plain) {
+        if !hasLinks && !hasBullets && !DescriptionHTML.looksLikeHTML(plain) {
             return plain
         }
-        return html(from: segments)
+        let html = html(from: lines)
+        return html.isEmpty ? nil : html
     }
 
     private static func segments(of text: AttributedString) -> [Segment] {
@@ -106,56 +122,97 @@ nonisolated enum DescriptionEditing {
         return hasVisibleText ? items : []
     }
 
-    private static func html(from segments: [Segment]) -> String {
-        var paragraphs: [[Segment]] = [[]]
-        var newlineRun = 0
+    private struct Line {
+        var runs: [(text: String, url: URL?)]
+        var isBullet = false
+        /// An empty line, or a bullet with nothing after the marker: separates blocks.
+        var isBlank: Bool {
+            isBullet ? runs.allSatisfy { $0.text.allSatisfy(\.isWhitespace) } : runs.isEmpty
+        }
+    }
+
+    /// Splits segments into lines and strips the bullet marker from bullet lines.
+    private static func lines(of segments: [Segment]) -> [Line] {
+        var lines = [Line(runs: [])]
         for segment in segments {
             switch segment {
-            case .newline:
-                newlineRun += 1
-            case .text:
-                if newlineRun >= 2 {
-                    paragraphs.append([])
-                } else if newlineRun == 1 {
-                    paragraphs[paragraphs.count - 1].append(.newline)
-                }
-                newlineRun = 0
-                paragraphs[paragraphs.count - 1].append(segment)
+            case .newline: lines.append(Line(runs: []))
+            case .text(let string, let url): lines[lines.count - 1].runs.append((string, url))
             }
         }
+        return lines.map { line in
+            let characters = Array(line.runs.map(\.text).joined())
+            var remaining = DescriptionBullets.markerLength(at: 0, in: characters)
+            guard remaining > 0 else { return line }
+            var runs = line.runs
+            while remaining > 0, !runs.isEmpty {
+                let dropped = min(remaining, runs[0].text.count)
+                runs[0].text.removeFirst(dropped)
+                remaining -= dropped
+                if runs[0].text.isEmpty { runs.removeFirst() }
+            }
+            return Line(runs: runs, isBullet: true)
+        }
+    }
 
-        return paragraphs.map { paragraph in
-            var output = ""
-            var pending: (text: String, url: URL?)?
-            func flush() {
-                guard let current = pending else { return }
-                let escaped = DescriptionHTML.escapeText(current.text)
-                if let url = current.url {
-                    let href = url.absoluteString
-                        .replacingOccurrences(of: "&", with: "&amp;")
-                        .replacingOccurrences(of: "\"", with: "&quot;")
-                    output += "<a href=\"\(href)\">\(escaped)</a>"
-                } else {
-                    output += escaped
-                }
-                pending = nil
+    private static func html(from lines: [Line]) -> String {
+        enum Block {
+            case paragraph([Line])
+            case list([Line])
+        }
+        var blocks: [Block] = []
+        var current: Block?
+        func finish() {
+            if let block = current { blocks.append(block) }
+            current = nil
+        }
+        for line in lines {
+            if line.isBlank {
+                finish()
+            } else if line.isBullet {
+                if case .list(let items) = current { current = .list(items + [line]) } else { finish(); current = .list([line]) }
+            } else {
+                if case .paragraph(let rows) = current { current = .paragraph(rows + [line]) } else { finish(); current = .paragraph([line]) }
             }
-            for segment in paragraph {
-                switch segment {
-                case .newline:
-                    flush()
-                    output += "<br>"
-                case .text(let string, let url):
-                    if let current = pending, current.url == url {
-                        pending = (current.text + string, url)
-                    } else {
-                        flush()
-                        pending = (string, url)
-                    }
-                }
+        }
+        finish()
+
+        return blocks.map { block in
+            switch block {
+            case .paragraph(let rows):
+                "<p>" + rows.map { inlineHTML($0.runs) }.joined(separator: "<br>") + "</p>"
+            case .list(let items):
+                "<ul>" + items.map { "<li>" + inlineHTML($0.runs) + "</li>" }.joined() + "</ul>"
             }
-            flush()
-            return "<p>\(output)</p>"
         }.joined()
+    }
+
+    /// One line's text, escaped, with adjacent runs to the same link merged into one `<a>`.
+    private static func inlineHTML(_ runs: [(text: String, url: URL?)]) -> String {
+        var output = ""
+        var pending: (text: String, url: URL?)?
+        func flush() {
+            guard let current = pending else { return }
+            let escaped = DescriptionHTML.escapeText(current.text)
+            if let url = current.url {
+                let href = url.absoluteString
+                    .replacingOccurrences(of: "&", with: "&amp;")
+                    .replacingOccurrences(of: "\"", with: "&quot;")
+                output += "<a href=\"\(href)\">\(escaped)</a>"
+            } else {
+                output += escaped
+            }
+            pending = nil
+        }
+        for run in runs {
+            if let current = pending, current.url == run.url {
+                pending = (current.text + run.text, run.url)
+            } else {
+                flush()
+                pending = run
+            }
+        }
+        flush()
+        return output
     }
 }
