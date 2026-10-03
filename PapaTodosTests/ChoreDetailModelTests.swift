@@ -207,12 +207,12 @@ struct ChoreDetailModelTests {
         #expect(await waitUntil { await world.comments.subscriberCount == 1 })
 
         // A reload and a live insert racing: the final list holds both, once each.
-        async let reload: Void = world.model.reloadComments()
+        async let reload = world.model.reloadComments()
         await world.comments.simulateRemote(
             .inserted(ChoreComment(id: UUID(), choreId: world.chore.id, authorId: nil, body: "racing", createdAt: Date())),
             choreID: world.chore.id
         )
-        await reload
+        _ = await reload
         #expect(await waitUntil { Set(world.model.comments.map(\.body)) == ["old", "racing"] && world.model.comments.count == 2 })
         listener.cancel()
     }

@@ -47,7 +47,7 @@ struct ChoreDetailView: View {
                     } label: {
                         Label("Edit Chore", systemImage: "pencil")
                     }
-                    .disabled(model.chore == nil)
+                    .disabled(model.chore == nil || model.isReadOnly)
                     .accessibilityIdentifier("detail.edit")
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -61,7 +61,7 @@ struct ChoreDetailView: View {
                     } label: {
                         Label("More", systemImage: "ellipsis")
                     }
-                    .disabled(model.chore == nil)
+                    .disabled(model.chore == nil || model.isReadOnly)
                     .accessibilityIdentifier("detail.more")
                 }
             }
@@ -92,7 +92,7 @@ struct ChoreDetailView: View {
                 if phase == .active { Task { await model.reloadComments() } }
             }
             .fullScreenCover(item: $viewerIndex) { route in
-                PhotoViewerView(attachments: attachments, index: route.index)
+                PhotoViewerView(attachments: attachments, index: route.index, load: model.photoData)
             }
             .sheet(isPresented: $isEditing) { editForm }
             .sheet(isPresented: calendarSheetBinding) {
@@ -133,6 +133,7 @@ struct ChoreDetailView: View {
     private func loaded(_ chore: Chore) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                FreshnessBannerView(model: model)
                 card(chore)
                 CommentsSectionView(model: model)
             }
@@ -178,7 +179,7 @@ struct ChoreDetailView: View {
                         Text("Mark as Done").frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(model.isUpdatingStatus)
+                    .disabled(model.isUpdatingStatus || model.isReadOnly)
                     .accessibilityIdentifier("detail.markDone")
                 }
 
@@ -197,7 +198,7 @@ struct ChoreDetailView: View {
                 Button {
                     viewerIndex = ViewerRoute(index: 0)
                 } label: {
-                    AsyncImage(url: first.publicURL) { phase in
+                    StoredPhotoImage(url: first.publicURL, load: model.photoData) { phase in
                         if case .success(let image) = phase {
                             image.resizable().scaledToFill()
                         } else {
@@ -219,7 +220,7 @@ struct ChoreDetailView: View {
                                 Button {
                                     viewerIndex = ViewerRoute(index: position)
                                 } label: {
-                                    AsyncImage(url: attachment.publicURL) { phase in
+                                    StoredPhotoImage(url: attachment.publicURL, load: model.photoData) { phase in
                                         if case .success(let image) = phase {
                                             image.resizable().scaledToFill()
                                         } else {
@@ -255,7 +256,7 @@ struct ChoreDetailView: View {
                 .background(.quaternary, in: Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(model.isUpdatingStatus)
+        .disabled(model.isUpdatingStatus || model.isReadOnly)
         .accessibilityLabel("Status: \(ChoreSearch.statusLabel(for: chore.status))")
         .accessibilityHint("Changes the status to \(ChoreSearch.statusLabel(for: chore.status.next)).")
         .accessibilityIdentifier("detail.status")

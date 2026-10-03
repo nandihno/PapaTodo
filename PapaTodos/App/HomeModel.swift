@@ -9,6 +9,9 @@ import Observation
 /// can never overwrite a newer one (specification.md section 9.2). A failed refresh
 /// keeps the chores already on screen and reports the error separately instead of
 /// blanking the list.
+///
+/// When the first load fails, the phone's saved copies of recently opened chores are offered
+/// instead (docs/phase-8-offline-plan.md).
 @Observable
 @MainActor
 final class HomeModel {
@@ -25,6 +28,9 @@ final class HomeModel {
     private(set) var isRefreshing = false
     /// A refresh failed but earlier results are still displayed.
     private(set) var refreshError: DataServiceError?
+    /// The phone's saved chores, most recently viewed first. Only filled while the first load
+    /// has failed; cleared as soon as a load succeeds.
+    private(set) var savedChores: [Chore] = []
 
     /// A note after a form save/delete that completed with a caveat (for example, photo
     /// files that could not be removed from storage).
@@ -34,11 +40,23 @@ final class HomeModel {
     var searchQuery = ""
 
     private let repository: any ChoreRepository
+    private let cache: (any ChoreCache)?
+    private let photos: ChorePhotoStore?
+    private let userID: UUID?
     private let onSessionExpired: @MainActor () -> Void
     private var latestRequest = 0
 
-    init(repository: any ChoreRepository, onSessionExpired: @escaping @MainActor () -> Void = {}) {
+    init(
+        repository: any ChoreRepository,
+        cache: (any ChoreCache)? = nil,
+        photos: ChorePhotoStore? = nil,
+        userID: UUID? = nil,
+        onSessionExpired: @escaping @MainActor () -> Void = {}
+    ) {
         self.repository = repository
+        self.cache = cache
+        self.photos = photos
+        self.userID = userID
         self.onSessionExpired = onSessionExpired
     }
 
@@ -74,9 +92,15 @@ final class HomeModel {
         )
     }
 
-    /// First load, or a retry after the first load failed: shows the full-screen loader.
+    /// First load, or a retry after the first load failed: shows the full-screen loader, unless
+    /// saved chores are on screen, which stay visible while retrying.
     func load() async {
-        await perform(showFullLoader: chores.isEmpty)
+        await perform(showFullLoader: chores.isEmpty && savedChores.isEmpty)
+    }
+
+    /// A photo for a saved chore's card: the phone's copy, since there's no connection.
+    func savedPhotoData(for url: URL, choreID: UUID) async -> Data? {
+        await photos?.data(for: url, choreID: choreID, userID: userID)
     }
 
     /// Pull-to-refresh and foreground refresh: keeps the list visible while fetching.
@@ -99,6 +123,7 @@ final class HomeModel {
             let fetched = try await repository.fetchChores()
             guard request == latestRequest else { return }
             chores = fetched
+            savedChores = []
             loadState = .loaded
             isRefreshing = false
         } catch {
@@ -113,6 +138,8 @@ final class HomeModel {
                 onSessionExpired()
             default:
                 if chores.isEmpty && loadState != .loaded {
+                    await showSavedChores()
+                    guard request == latestRequest else { return }
                     loadState = .failed(failure)
                 } else {
                     loadState = .loaded
@@ -120,5 +147,10 @@ final class HomeModel {
                 }
             }
         }
+    }
+
+    private func showSavedChores() async {
+        guard let cache, let userID else { return }
+        savedChores = await cache.entries(userID: userID).map(\.chore)
     }
 }

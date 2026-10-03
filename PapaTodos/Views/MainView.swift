@@ -12,6 +12,8 @@ struct MainView: View {
     let user: AppSessionRecord
     let session: AppSession
     let environment: AppEnvironment
+    /// Browsing the saved chores after a restore failed offline: nothing registers for push.
+    let savedChoresOnly: Bool
 
     @State private var home: HomeModel
     @State private var profileStore: ProfileStore
@@ -22,12 +24,16 @@ struct MainView: View {
     @Environment(PushRegistrationModel.self) private var push
     @State private var path = NavigationPath()
 
-    init(user: AppSessionRecord, environment: AppEnvironment, session: AppSession) {
+    init(user: AppSessionRecord, environment: AppEnvironment, session: AppSession, savedChoresOnly: Bool = false) {
         self.user = user
         self.session = session
         self.environment = environment
+        self.savedChoresOnly = savedChoresOnly
         let expire: @MainActor () -> Void = { [weak session] in session?.handleSessionExpired() }
-        _home = State(initialValue: HomeModel(repository: environment.choreRepository, onSessionExpired: expire))
+        _home = State(initialValue: HomeModel(
+            repository: environment.choreRepository, cache: environment.choreCache, photos: environment.photoStore,
+            userID: user.userId, onSessionExpired: expire
+        ))
         _profileStore = State(initialValue: ProfileStore(
             userID: user.userId, repository: environment.profileRepository, onSessionExpired: expire
         ))
@@ -59,7 +65,7 @@ struct MainView: View {
         .task { await profileStore.load() }
         .task { await favourites.load() }
         .task { await favourites.loadPeople() }
-        .task { await push.sessionDidSignIn() }
+        .task { if !savedChoresOnly { await push.sessionDidSignIn() } }
         .onDisappear { push.sessionDidSignOut() }
         // A tapped notification (or a UI test) asks to open a chore: replace the stack with Home then
         // that chore. The router keeps the request until here, so a tap that arrives while signed out
@@ -93,7 +99,11 @@ struct MainView: View {
             commentRepository: environment.commentRepository,
             profileRepository: environment.profileRepository,
             notifier: environment.notifier,
+            cache: environment.choreCache,
+            photos: environment.photoStore,
+            userID: user.userId,
             calendarStatus: { CalendarAccess.current() },
+            confirmationDuration: UITestHooks.upToDateConfirmation,
             onChoreChanged: { [home] updated in home.upsert(updated) },
             onSessionExpired: { [weak session] in session?.handleSessionExpired() }
         )

@@ -567,6 +567,81 @@ final class PapaTodosUITests: XCTestCase {
     }
 
     @MainActor
+    func testOpeningAChoreConfirmsItIsUpToDateThenHidesTheNotice() throws {
+        let app = launchSignedIn(extraArguments: ["-UITestLongConfirmation"])
+        openDetail(app, containing: "Water the garden")
+
+        let notice = app.staticTexts["detail.freshness"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 3), "a confirmed refresh is announced")
+        XCTAssertEqual(notice.label, "Up to date")
+        attachScreenshot(app, named: "detail-up-to-date")
+        let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: notice)
+        wait(for: [gone], timeout: 12)
+        XCTAssertTrue(app.buttons["detail.edit"].isEnabled, "a live chore can be changed")
+        XCTAssertTrue(app.buttons["detail.markDone"].isEnabled)
+    }
+
+    @MainActor
+    func testOfflineHomeOffersSavedChoresThatOpenReadOnly() throws {
+        // Still signed in from before, but no connection.
+        let app = launch(extraArguments: ["-UITestOffline"])
+
+        let header = app.staticTexts["home.savedHeader"]
+        XCTAssertTrue(header.waitForExistence(timeout: 8), "with no connection, Home offers the saved chores")
+        XCTAssertEqual(header.label, "Saved for offline (2)")
+        XCTAssertEqual(cards(app).count, 2)
+        XCTAssertTrue(app.buttons["home.retry"].exists)
+        attachScreenshot(app, named: "home-saved-for-offline")
+
+        // Most recently viewed first.
+        cards(app).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Take out recycling"].waitForExistence(timeout: 5))
+        let banner = app.descendants(matching: .any)["detail.freshness"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 5))
+        XCTAssertTrue(banner.label.hasPrefix("Saved copy · updated"), banner.label)
+        XCTAssertTrue(banner.label.contains("Reconnect to make changes."), banner.label)
+        XCTAssertTrue(app.buttons["detail.refresh"].exists)
+        XCTAssertFalse(app.buttons["detail.edit"].isEnabled, "a saved copy can't be edited")
+        XCTAssertFalse(app.buttons["detail.markDone"].isEnabled)
+        XCTAssertFalse(app.buttons["detail.status"].isEnabled)
+        XCTAssertFalse(app.textFields["detail.commentField"].isEnabled)
+        attachScreenshot(app, named: "detail-saved-copy")
+    }
+
+    @MainActor
+    func testOpeningOfflineWithAnExpiredSignInOffersTheSavedChores() throws {
+        let app = launch(extraArguments: ["-UITestRestoreOffline", "-UITestOffline"])
+
+        let viewSaved = app.buttons["restore.viewSaved"]
+        XCTAssertTrue(viewSaved.waitForExistence(timeout: 8), "the restore screen offers the saved chores")
+        XCTAssertEqual(viewSaved.label, "View Saved Chores (2)")
+        attachScreenshot(app, named: "restore-view-saved")
+
+        viewSaved.tap()
+        let header = app.staticTexts["home.savedHeader"]
+        XCTAssertTrue(header.waitForExistence(timeout: 8))
+        XCTAssertEqual(header.label, "Saved for offline (2)")
+        cards(app).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Take out recycling"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["detail.edit"].isEnabled, "a saved copy can't be edited")
+    }
+
+    @MainActor
+    func testANotificationTappedOfflineOpensTheSavedCopy() throws {
+        let app = launch(extraArguments: [
+            "-UITestRestoreOffline", "-UITestOffline", "-UITestNotificationTapChore", recyclingChoreID,
+        ])
+
+        let viewSaved = app.buttons["restore.viewSaved"]
+        XCTAssertTrue(viewSaved.waitForExistence(timeout: 8))
+        viewSaved.tap()
+        XCTAssertTrue(app.navigationBars["Take out recycling"].waitForExistence(timeout: 8), "the tapped chore opens")
+        let banner = app.descendants(matching: .any)["detail.freshness"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 5))
+        XCTAssertTrue(banner.label.hasPrefix("Saved copy · updated"), banner.label)
+    }
+
+    @MainActor
     func testTheStatusButtonCyclesThroughPendingInProgressDoneAndBack() throws {
         let app = launchSignedIn()
         openDetail(app, containing: "Water the garden")

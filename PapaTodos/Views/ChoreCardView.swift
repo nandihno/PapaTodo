@@ -6,6 +6,8 @@ import UIKit
 struct ChoreCardView: View {
     let chore: Chore
     var now: Date = Date()
+    /// Where the thumbnail comes from; nil downloads it. Saved-for-offline cards pass the phone's copy.
+    var photoLoad: (@MainActor (URL) async -> Data?)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var thumbnailSize: CGFloat = 64
@@ -69,15 +71,27 @@ struct ChoreCardView: View {
         }
     }
 
-    private func thumbnail(_ attachment: ChoreAttachment) -> some View {
-        AsyncImage(url: attachment.publicURL) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            default:
-                Image(systemName: "photo").foregroundStyle(.secondary)
-            }
+    @ViewBuilder
+    private func thumbnailImage(_ url: URL) -> some View {
+        if let photoLoad {
+            StoredPhotoImage(url: url, load: photoLoad) { thumbnailPhase($0) }
+        } else {
+            AsyncImage(url: url) { thumbnailPhase($0) }
         }
+    }
+
+    @ViewBuilder
+    private func thumbnailPhase(_ phase: AsyncImagePhase) -> some View {
+        switch phase {
+        case .success(let image):
+            image.resizable().scaledToFill()
+        default:
+            Image(systemName: "photo").foregroundStyle(.secondary)
+        }
+    }
+
+    private func thumbnail(_ attachment: ChoreAttachment) -> some View {
+        thumbnailImage(attachment.publicURL)
         .frame(width: thumbnailSize, height: thumbnailSize)
         .background(.quaternary)
         .clipShape(RoundedRectangle(cornerRadius: 10))

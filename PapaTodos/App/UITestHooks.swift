@@ -10,4 +10,10 @@ enum UITestHooks {
     static var forcedColorScheme: ColorScheme? {
         ProcessInfo.processInfo.arguments.contains("-UITestDarkMode") ? .dark : nil
     }
+
+    /// How long the detail screen's "Up to date" notice stays. `-UITestLongConfirmation` keeps it
+    /// up long enough for a UI test to find it: fixture fetches finish during the push animation.
+    static var upToDateConfirmation: Duration {
+        ProcessInfo.processInfo.arguments.contains("-UITestLongConfirmation") ? .seconds(8) : .seconds(2)
+    }
 }

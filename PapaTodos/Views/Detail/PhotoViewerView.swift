@@ -5,6 +5,8 @@ import SwiftUI
 struct PhotoViewerView: View {
     let attachments: [ChoreAttachment]
     @State var index: Int
+    /// Serves the phone's saved copy of a photo when there is one.
+    let load: @MainActor (URL) async -> Data?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -13,7 +15,7 @@ struct PhotoViewerView: View {
 
             TabView(selection: $index) {
                 ForEach(Array(attachments.enumerated()), id: \.element.id) { position, attachment in
-                    ZoomablePhoto(url: attachment.publicURL)
+                    ZoomablePhoto(url: attachment.publicURL, load: load)
                         .tag(position)
                         // One element per page, so VoiceOver reads "Photo 2 of 4" whether or not the image has loaded.
                         .accessibilityElement(children: .ignore)
@@ -43,13 +45,14 @@ struct PhotoViewerView: View {
 
 private struct ZoomablePhoto: View {
     let url: URL
+    let load: @MainActor (URL) async -> Data?
 
     @State private var scale: CGFloat = 1
     @State private var baseScale: CGFloat = 1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        AsyncImage(url: url) { phase in
+        StoredPhotoImage(url: url, load: load) { phase in
             switch phase {
             case .success(let image):
                 image

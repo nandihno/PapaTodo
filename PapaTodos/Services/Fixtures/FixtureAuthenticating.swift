@@ -7,23 +7,33 @@ actor FixtureAuthenticating: Authenticating {
     private let validEmail: String
     private let validPassword: String
     private var restoreError: DataServiceError?
+    private let restoreDelay: Duration
     private var continuations: [UUID: AsyncStream<AuthEvent>.Continuation] = [:]
 
     init(
         initialSession: AppSessionRecord? = nil,
         validEmail: String = "family@example.com",
         validPassword: String = "correct-horse",
-        restoreError: DataServiceError? = nil
+        restoreError: DataServiceError? = nil,
+        restoreDelay: Duration = .zero
     ) {
         self.session = initialSession
         self.validEmail = validEmail
         self.validPassword = validPassword
         self.restoreError = restoreError
+        self.restoreDelay = restoreDelay
     }
 
+    /// - `restoreDelay`: how long a restore takes, like a network timeout; lets UI-test fixtures
+    ///   (such as saved offline chores) finish setting up first.
     func currentSession() async throws -> AppSessionRecord? {
+        if restoreDelay > .zero { try? await Task.sleep(for: restoreDelay) }
         if let restoreError { throw restoreError }
         return session
+    }
+
+    func storedUserID() async -> UUID? {
+        session?.userId
     }
 
     func signIn(email: String, password: String) async throws {

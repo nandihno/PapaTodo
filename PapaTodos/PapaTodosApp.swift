@@ -43,6 +43,9 @@ struct PapaTodosApp: App {
         PushBridge.shared.onOpenChore = { routerModel.routeToChore($0) }
         // Take this device off the user's push list before their session is cleared.
         sessionModel.beforeSignOut = { await pushModel.unregisterBeforeSignOut() }
+        // Offline chore copies belong to the session: erase them when it ends.
+        let cache = services.choreCache
+        sessionModel.onSessionEnded = { await cache.removeAll() }
 
         // UI tests: behave as if a notification about this chore was tapped before sign-in.
         let arguments = ProcessInfo.processInfo.arguments
@@ -79,11 +82,24 @@ struct PapaTodosApp: App {
     private static func resolveEnvironment() -> (environment: AppEnvironment?, error: String?) {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UITestFixtures") {
+            // Offline runs start with a saved sign-in, since only a signed-in account has saved chores:
+            // still valid with `-UITestOffline`, expired (restore fails) with `-UITestRestoreOffline` too.
+            // The delay lets the saved chores be written first, as a slow restore would.
+            let savedSignIn = AppSessionRecord(userId: FixtureData.currentUserID, email: "family@example.com")
+            let authenticating = if arguments.contains("-UITestRestoreOffline") {
+                FixtureAuthenticating(initialSession: savedSignIn, restoreError: .offline, restoreDelay: .milliseconds(500))
+            } else if arguments.contains("-UITestOffline") {
+                FixtureAuthenticating(initialSession: savedSignIn, restoreDelay: .milliseconds(500))
+            } else {
+                FixtureAuthenticating()
+            }
             return (.fixture(
+                authenticating: authenticating,
                 failFirstChoreFetches: arguments.contains("-UITestFailFirstLoad") ? 1 : 0,
                 remoteComment: arguments.contains("-UITestRemoteComment"),
                 storageRefusesDeletes: arguments.contains("-UITestStorageRefusesDeletes"),
                 noFavourites: arguments.contains("-UITestNoFavourites"),
+                offline: arguments.contains("-UITestOffline"),
                 notificationStatus: notificationStatus(from: arguments)
             ), nil)
         }

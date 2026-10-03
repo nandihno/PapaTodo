@@ -73,7 +73,7 @@ struct CommentBarView: View {
                 .padding(.vertical, 10)
                 .background(.background, in: RoundedRectangle(cornerRadius: 20))
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(.separator))
-                .disabled(model.chore == nil || model.isSendingComment)
+                .disabled(model.chore == nil || model.isReadOnly || model.isSendingComment)
                 .accessibilityLabel("Add a comment")
                 .accessibilityIdentifier("detail.commentField")
 

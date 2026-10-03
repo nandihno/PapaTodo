@@ -6,6 +6,8 @@ actor FaultInjector {
     enum Point: Hashable, Sendable {
         /// The nth upload (1-based) fails.
         case upload(nth: Int)
+        /// The next single-chore fetch (the detail screen's refresh) fails.
+        case fetchChore
         case createChore
         case updateChore
         case deleteChore

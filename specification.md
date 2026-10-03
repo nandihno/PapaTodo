@@ -176,6 +176,7 @@ The current `send-push` function still reads only `push_subscriptions` and calls
 - Replacement or retirement of the web client.
 - A WebView wrapper around the existing site.
 - Offline-first editing, conflict resolution, or a durable offline write queue.
+  - *Note (2026-09-29, Phase 8):* a **read-only** offline copy of the 10 most recently viewed chores was added later (docs/phase-8-offline-plan.md). It never edits offline, so there is still no write queue or conflict handling; this exclusion stands.
 - New account registration, invitations, password-reset UX, or family administration.
 - Sign in with Apple unless separately requested.
 - A redesigned backend or a new API server.
@@ -191,6 +192,7 @@ The current `send-push` function still reads only `push_subscriptions` and calls
 
 - Server-scheduled due-soon reminders: add approximately 3-5 engineering days.
 - Offline-first reads and writes: add approximately 1-2 weeks plus conflict-policy decisions.
+  - *Partly done in Phase 8 (2026-09-29):* offline reads of recently viewed chores. Offline writes remain out of scope.
 - Fully optimized iPad interface: add approximately 3-5 engineering days.
 - Camera capture, cropping, compression controls, or attachment reordering beyond web parity.
 - Account onboarding and family membership management.

@@ -85,6 +85,24 @@ nonisolated enum FixtureData {
         ]
     }
 
+    /// Saves offline copies of "Water the garden" and then "Take out recycling" (most recently
+    /// viewed), with their photos, as if both were opened two hours ago (`-UITestOffline`).
+    static func seedSavedChores(into cache: any ChoreCache, now: Date = Date()) async {
+        let savedAt = now.addingTimeInterval(-7_200)
+        let all = chores(now: now)
+        let people = [currentSummary, otherSummary]
+        for id in [gardenID, recyclingID] {
+            guard let chore = all.first(where: { $0.id == id }) else { continue }
+            let entry = CachedChore(
+                chore: chore, comments: comments(now: now).filter { $0.choreId == id }, people: people, savedAt: savedAt
+            )
+            await cache.save(entry, userID: currentUserID)
+            for url in entry.photoURLs {
+                await cache.savePhoto(FixturePhotoDownloader.photo, url: url, choreID: id, userID: currentUserID)
+            }
+        }
+    }
+
     static let woolworthsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000001")!
     static let binsTemplateID = UUID(uuidString: "DDDDDDDD-0000-0000-0000-000000000002")!
 

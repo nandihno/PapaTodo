@@ -90,18 +90,71 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityIdentifier("home.loading")
         case .failed(let error):
-            ContentUnavailableView {
-                Label("Could not load chores", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.errorDescription ?? "")
-            } actions: {
-                Button("Try Again") { Task { await home.load() } }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("home.retry")
+            if home.savedChores.isEmpty {
+                ContentUnavailableView {
+                    Label("Could not load chores", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error.errorDescription ?? "")
+                } actions: {
+                    Button("Try Again") { Task { await home.load() } }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("home.retry")
+                }
+            } else {
+                savedList(error)
             }
         case .loaded:
             list
         }
+    }
+
+    /// Shown when chores can't be loaded but some were saved on the phone when last opened
+    /// (docs/phase-8-offline-plan.md).
+    private func savedList(_ error: DataServiceError) -> some View {
+        List {
+            Section {
+                Label("Could not load chores", systemImage: "wifi.slash")
+                    .font(.headline)
+                    .accessibilityIdentifier("home.offline")
+                Text(error.errorDescription ?? "")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await home.load() }
+                } label: {
+                    if home.isRefreshing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Trying…")
+                        }
+                    } else {
+                        Text("Try Again")
+                    }
+                }
+                .disabled(home.isRefreshing)
+                .accessibilityIdentifier("home.retry")
+            }
+
+            Section {
+                ForEach(home.savedChores) { chore in
+                    NavigationLink(value: MainRoute.detail(chore.id)) {
+                        ChoreCardView(chore: chore) { [home] url in
+                            await home.savedPhotoData(for: url, choreID: chore.id)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("chore.card")
+                }
+            } header: {
+                Text("Saved for offline (\(home.savedChores.count))")
+                    .textCase(nil)
+                    .accessibilityIdentifier("home.savedHeader")
+            } footer: {
+                Text("The chores you opened most recently, as they were then. Reconnect to see the latest and make changes.")
+            }
+        }
+        .refreshable { await home.load() }
+        .accessibilityIdentifier("home.savedList")
     }
 
     private var list: some View {

@@ -20,6 +20,10 @@ nonisolated struct SupabaseAuthenticating: Authenticating {
         }
     }
 
+    func storedUserID() async -> UUID? {
+        client.auth.currentSession?.user.id
+    }
+
     func signIn(email: String, password: String) async throws {
         do {
             try await client.auth.signIn(email: email, password: password)

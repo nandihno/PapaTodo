@@ -7,22 +7,28 @@ actor FixtureChoreRepository: ChoreRepository {
     private var failuresRemaining: Int
     private let currentUserID: UUID
     private let faults: FaultInjector
+    private let alwaysOffline: Bool
 
-    /// - Parameter failFirstFetches: number of initial `fetchChores()` calls that throw
-    ///   `.offline`, so tests can exercise error and retry states deterministically.
+    /// - Parameters:
+    ///   - failFirstFetches: number of initial `fetchChores()` calls that throw
+    ///     `.offline`, so tests can exercise error and retry states deterministically.
+    ///   - alwaysOffline: every read throws `.offline`, as with no connection at all.
     init(
         chores: [Chore] = FixtureChoreRepository.sampleChores,
         failFirstFetches: Int = 0,
+        alwaysOffline: Bool = false,
         currentUserID: UUID = FixtureData.currentUserID,
         faults: FaultInjector = FaultInjector()
     ) {
         self.chores = Dictionary(uniqueKeysWithValues: chores.map { ($0.id, $0) })
         self.failuresRemaining = failFirstFetches
+        self.alwaysOffline = alwaysOffline
         self.currentUserID = currentUserID
         self.faults = faults
     }
 
     func fetchChores() async throws -> [Chore] {
+        if alwaysOffline { throw DataServiceError.offline }
         if failuresRemaining > 0 {
             failuresRemaining -= 1
             throw DataServiceError.offline
@@ -31,7 +37,9 @@ actor FixtureChoreRepository: ChoreRepository {
     }
 
     func fetchChore(id: UUID) async throws -> Chore? {
-        chores[id]
+        if alwaysOffline { throw DataServiceError.offline }
+        try await faults.check(.fetchChore)
+        return chores[id]
     }
 
     func create(_ draft: ChoreDraft) async throws -> Chore {

@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// Observable auth/session state (specification.md sections 7.1 and 9.1).
@@ -17,6 +18,10 @@ final class AppSession {
         /// saved session may still be valid, so the user retries instead of
         /// being signed out.
         case restoreFailed(message: String)
+        /// After a failed restore, browsing the chores saved on this phone for the account whose
+        /// sign-in is saved (docs/phase-8-offline-plan.md). Nothing loads until the connection is
+        /// back; the first request that renews the sign-in moves the app to `.signedIn`.
+        case savedChoresOnly(AppSessionRecord)
     }
 
     enum SignedOutReason: Equatable {
@@ -24,10 +29,19 @@ final class AppSession {
     }
 
     private(set) var phase: Phase = .restoring
+    /// The account whose sign-in is saved on the phone, when the last restore failed.
+    private(set) var savedUserID: UUID?
 
     var currentUser: AppSessionRecord? {
-        if case .signedIn(let record) = phase { record } else { nil }
+        switch phase {
+        case .signedIn(let record), .savedChoresOnly(let record): record
+        default: nil
+        }
     }
+
+    /// Erases what this phone keeps for the account (offline chore copies) when a session
+    /// ends: sign-out, expiry, or no saved session at all.
+    var onSessionEnded: (@MainActor () async -> Void)?
 
     /// Runs before the session is cleared, so the caller can still make authenticated calls
     /// (for example, unregistering this device from push notifications). Best effort: it gets a
@@ -52,15 +66,23 @@ final class AppSession {
         phase = .restoring
         do {
             if let record = try await authenticating.currentSession() {
+                savedUserID = nil
                 phase = .signedIn(record)
             } else {
-                phase = .signedOut(reason: nil)
+                end(.signedOut(reason: nil))
             }
         } catch DataServiceError.sessionExpired {
-            phase = .signedOut(reason: .sessionExpired)
+            end(.signedOut(reason: .sessionExpired))
         } catch {
+            savedUserID = await authenticating.storedUserID()
             phase = .restoreFailed(message: Self.message(for: error))
         }
+    }
+
+    /// Opens the saved chores of the account whose sign-in couldn't be restored.
+    func browseSavedChores() {
+        guard case .restoreFailed = phase, let savedUserID else { return }
+        phase = .savedChoresOnly(AppSessionRecord(userId: savedUserID, email: nil))
     }
 
     func signIn(email: String, password: String) async throws {
@@ -80,7 +102,13 @@ final class AppSession {
         // Best effort: sign-out must complete locally even if the server call fails.
         try? await authenticating.signOut()
         isSigningOut = false
-        phase = .signedOut(reason: nil)
+        end(.signedOut(reason: nil))
+    }
+
+    private func end(_ signedOut: Phase) {
+        savedUserID = nil
+        phase = signedOut
+        if let onSessionEnded { Task { await onSessionEnded() } }
     }
 
     /// Runs `operation`, but stops waiting for it after `limit`. The operation is not cancelled, so a
@@ -101,8 +129,8 @@ final class AppSession {
 
     /// Called by data screens when a request is rejected as unauthenticated.
     func handleSessionExpired() {
-        guard case .signedIn = phase else { return }
-        phase = .signedOut(reason: .sessionExpired)
+        guard currentUser != nil else { return }
+        end(.signedOut(reason: .sessionExpired))
     }
 
     private func startObservingIfNeeded() {
@@ -118,10 +146,11 @@ final class AppSession {
     private func handle(_ event: AuthEvent) {
         switch event {
         case .signedIn(let record):
+            savedUserID = nil
             phase = .signedIn(record)
         case .signedOut:
-            guard !isSigningOut, case .signedIn = phase else { return }
-            phase = .signedOut(reason: .sessionExpired)
+            guard !isSigningOut, currentUser != nil else { return }
+            end(.signedOut(reason: .sessionExpired))
         }
     }
 
